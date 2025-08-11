@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: roast-royale
+    env: python
+    buildCommand: "pip install -r requirements.txt && npm install && npm run build && cp -r dist/* backend/static/"
+    startCommand: "python backend/main.py"
+    plan: starter
+    healthCheckPath: /api/game/health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PORT
+        value: 5000
+
