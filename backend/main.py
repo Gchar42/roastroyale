@@ -1,280 +1,404 @@
 import os
-import sys
-from flask import Flask, send_from_directory, request
+import logging
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
 from game_manager import GameManager
 
-# Create Flask app with static folder for serving built React files
-app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize Flask app
+app = Flask(__name__, static_folder='static', static_url_path='')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'roast-royale-secret-key-2025')
 
-# Enable CORS for all routes (allows frontend to connect from any domain)
-CORS(app, origins="*")
+# Configure CORS
+CORS(app, origins="*", allow_headers=["Content-Type", "Authorization"])
 
-# Initialize SocketIO with CORS support for real-time multiplayer
-socketio = SocketIO(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
+# Initialize SocketIO with CORS support
+socketio = SocketIO(
+    app, 
+    cors_allowed_origins="*",
+    logger=True,
+    engineio_logger=True,
+    allow_unsafe_werkzeug=True
+)
 
-# Initialize game manager to handle all game logic
+# Initialize Game Manager
 game_manager = GameManager()
 
-# Health check endpoint for Railway deployment
+# Store connected clients
+connected_clients = {}
+
+@app.route('/')
+def serve_index():
+    """Serve the React app"""
+    try:
+        return send_file(os.path.join(app.static_folder, 'index.html'))
+    except Exception as e:
+        logger.error(f"Error serving index.html: {e}")
+        return jsonify({'error': 'Frontend not found'}), 404
+
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files or fallback to index.html for client-side routing"""
+    try:
+        # Try to serve the static file
+        return send_from_directory(app.static_folder, path)
+    except:
+        # Fallback to index.html for client-side routing
+        try:
+            return send_file(os.path.join(app.static_folder, 'index.html'))
+        except Exception as e:
+            logger.error(f"Error serving static file {path}: {e}")
+            return jsonify({'error': 'File not found'}), 404
+
+# API Routes
 @app.route('/api/game/health')
 def health_check():
-    return {
-        "status": "healthy",
-        "service": "Roast Royale Game API",
-        "version": "1.0.0",
-        "players_online": game_manager.get_total_players()
-    }, 200
+    """Health check endpoint"""
+    try:
+        return jsonify({
+            'status': 'healthy',
+            'rooms': len(game_manager.rooms),
+            'connected_clients': len(connected_clients),
+            'message': 'Roast Royale backend is running! 🔥'
+        })
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# API endpoint to get available questions
 @app.route('/api/game/questions')
-def get_questions():
-    return {
-        "status": "success",
-        "questions": game_manager.get_sample_questions()
-    }, 200
+def get_sample_questions():
+    """Get sample questions for testing"""
+    try:
+        return jsonify({
+            'questions': game_manager.questions[:3],  # Return first 3 questions
+            'total_questions': len(game_manager.questions)
+        })
+    except Exception as e:
+        logger.error(f"Error getting questions: {e}")
+        return jsonify({'error': str(e)}), 500
 
-# API endpoint to get game statistics
 @app.route('/api/game/stats')
-def get_stats():
-    return {
-        "status": "success",
-        "stats": game_manager.get_game_stats()
-    }, 200
+def get_game_stats():
+    """Get game statistics"""
+    try:
+        return jsonify({
+            'active_rooms': len(game_manager.rooms),
+            'connected_players': len(connected_clients),
+            'total_questions': len(game_manager.questions)
+        })
+    except Exception as e:
+        logger.error(f"Error getting stats: {e}")
+        return jsonify({'error': str(e)}), 500
 
-# SocketIO Events for Real-time Multiplayer
-
+# SocketIO Events
 @socketio.on('connect')
 def handle_connect():
-    print(f'🎮 Player connected: {request.sid}')
-    emit('connected', {
-        'status': 'Connected to Roast Royale server',
-        'player_id': request.sid
-    })
+    """Handle client connection"""
+    try:
+        client_id = request.sid
+        connected_clients[client_id] = {
+            'connected_at': time.time(),
+            'room_code': None
+        }
+        
+        logger.info(f"🔗 Client connected: {client_id}")
+        emit('connected', {
+            'message': 'Connected to Roast Royale server! 🔥',
+            'client_id': client_id
+        })
+    except Exception as e:
+        logger.error(f"Connection error: {e}")
+        emit('error', {'message': 'Connection failed'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    print(f'👋 Player disconnected: {request.sid}')
-    # Handle player leaving game and notify other players
-    game_manager.handle_player_disconnect(request.sid)
+    """Handle client disconnection"""
+    try:
+        client_id = request.sid
+        
+        if client_id in connected_clients:
+            room_code = connected_clients[client_id].get('room_code')
+            if room_code:
+                # Remove player from room
+                result = game_manager.remove_player(room_code, client_id)
+                if result.get('success'):
+                    # Notify other players in the room
+                    socketio.emit('room_updated', result.get('room_data'), room=room_code)
+            
+            del connected_clients[client_id]
+        
+        logger.info(f"🔌 Client disconnected: {client_id}")
+    except Exception as e:
+        logger.error(f"Disconnection error: {e}")
 
 @socketio.on('create_room')
 def handle_create_room(data):
-    player_name = data.get('player_name', 'Anonymous')
-    
+    """Handle room creation"""
     try:
-        # Create new game room
-        room_code = game_manager.create_room(player_name, request.sid)
-        join_room(room_code)
+        player_name = data.get('player_name', '').strip()
+        client_id = request.sid
         
-        room_data = game_manager.get_room_data(room_code)
-        print(f'🏠 Room created: {room_code} by {player_name}')
+        # Validate input
+        if not player_name or len(player_name) > 20:
+            emit('room_error', {'message': 'Invalid player name'})
+            return
         
-        emit('room_created', {
-            'success': True,
-            'room_code': room_code,
-            'room_data': room_data
-        })
+        # Create room
+        result = game_manager.create_room(player_name, client_id)
+        
+        if result.get('success'):
+            room_code = result['room_code']
+            room_data = result['room_data']
+            
+            # Join socket room
+            join_room(room_code)
+            
+            # Update client info
+            connected_clients[client_id]['room_code'] = room_code
+            
+            logger.info(f"🏠 Room created: {room_code} by {player_name}")
+            emit('room_created', {
+                'success': True,
+                'room_code': room_code,
+                'room_data': room_data
+            })
+        else:
+            emit('room_error', {'message': result.get('error', 'Failed to create room')})
+    
     except Exception as e:
-        print(f'❌ Error creating room: {str(e)}')
-        emit('room_error', {'message': f'Failed to create room: {str(e)}'})
+        logger.error(f"Create room error: {e}")
+        emit('room_error', {'message': 'Server error creating room'})
 
 @socketio.on('join_room')
 def handle_join_room(data):
-    room_code = data.get('room_code', '').upper()
-    player_name = data.get('player_name', 'Anonymous')
-    
+    """Handle joining a room"""
     try:
-        # Add player to existing game room
-        success, message = game_manager.add_player_to_room(room_code, player_name, request.sid)
+        room_code = data.get('room_code', '').strip().upper()
+        player_name = data.get('player_name', '').strip()
+        client_id = request.sid
         
-        if success:
+        # Validate input
+        if not room_code or not player_name:
+            emit('join_error', {'message': 'Room code and player name required'})
+            return
+        
+        if len(player_name) > 20:
+            emit('join_error', {'message': 'Player name too long'})
+            return
+        
+        # Join room
+        result = game_manager.join_room(room_code, player_name, client_id)
+        
+        if result.get('success'):
+            room_data = result['room_data']
+            
+            # Join socket room
             join_room(room_code)
-            room_data = game_manager.get_room_data(room_code)
             
-            print(f'🎯 {player_name} joined room: {room_code}')
+            # Update client info
+            connected_clients[client_id]['room_code'] = room_code
             
-            # Notify all players in room about new player
-            emit('room_updated', room_data, room=room_code)
-            emit('join_success', {'message': message, 'room_data': room_data})
+            logger.info(f"👥 {player_name} joined room: {room_code}")
+            
+            # Notify the joining player
+            emit('join_success', {
+                'success': True,
+                'room_data': room_data
+            })
+            
+            # Notify other players in the room
+            socketio.emit('room_updated', room_data, room=room_code)
         else:
-            emit('join_error', {'message': message})
+            emit('join_error', {'message': result.get('error', 'Failed to join room')})
+    
     except Exception as e:
-        print(f'❌ Error joining room: {str(e)}')
-        emit('join_error', {'message': f'Failed to join room: {str(e)}'})
+        logger.error(f"Join room error: {e}")
+        emit('join_error', {'message': 'Server error joining room'})
 
 @socketio.on('start_game')
 def handle_start_game(data):
-    room_code = data.get('room_code')
-    game_settings = data.get('settings', {})
-    
+    """Handle game start"""
     try:
-        success, message = game_manager.start_game(room_code, request.sid, game_settings)
+        room_code = data.get('room_code')
+        settings = data.get('settings', {})
+        client_id = request.sid
         
-        if success:
-            game_data = game_manager.get_game_data(room_code)
-            print(f'🚀 Game started in room: {room_code}')
-            emit('game_started', game_data, room=room_code)
+        if not room_code:
+            emit('game_error', {'message': 'Room code required'})
+            return
+        
+        # Verify host
+        room = game_manager.get_room(room_code)
+        if not room:
+            emit('game_error', {'message': 'Room not found'})
+            return
+        
+        if room['host_sid'] != client_id:
+            emit('game_error', {'message': 'Only host can start the game'})
+            return
+        
+        # Start game
+        result = game_manager.start_game(room_code, settings)
+        
+        if result.get('success'):
+            logger.info(f"🎮 Game started in room: {room_code}")
+            socketio.emit('game_started', result, room=room_code)
         else:
-            emit('start_error', {'message': message})
+            emit('game_error', {'message': result.get('error', 'Failed to start game')})
+    
     except Exception as e:
-        print(f'❌ Error starting game: {str(e)}')
-        emit('start_error', {'message': f'Failed to start game: {str(e)}'})
+        logger.error(f"Start game error: {e}")
+        emit('game_error', {'message': 'Server error starting game'})
 
 @socketio.on('submit_answer')
 def handle_submit_answer(data):
-    room_code = data.get('room_code')
-    answer = data.get('answer', '')
-    
+    """Handle answer submission"""
     try:
-        success, message = game_manager.submit_answer(room_code, request.sid, answer)
+        room_code = data.get('room_code')
+        answer_data = data.get('answer_data', {})
+        client_id = request.sid
         
-        if success:
-            # Notify room about answer submission
-            emit('answer_submitted', {
-                'player_sid': request.sid,
-                'message': message
-            }, room=room_code)
+        if not room_code:
+            emit('answer_error', {'message': 'Room code required'})
+            return
+        
+        # Submit answer
+        result = game_manager.submit_answer(room_code, client_id, answer_data)
+        
+        if result.get('success'):
+            logger.info(f"📝 Answer submitted in room: {room_code}")
             
-            # Check if all answers are submitted and advance game
-            if game_manager.all_answers_submitted(room_code):
-                game_data = game_manager.advance_game_state(room_code)
-                emit('game_state_updated', game_data, room=room_code)
+            # Notify all players
+            socketio.emit('game_state_updated', result['room_data'], room=room_code)
+            
+            # If all players answered, show results
+            if result.get('all_answered'):
+                socketio.emit('round_ended', {
+                    'show_results': True,
+                    'room_data': result['room_data']
+                }, room=room_code)
         else:
-            emit('submit_error', {'message': message})
-    except Exception as e:
-        print(f'❌ Error submitting answer: {str(e)}')
-        emit('submit_error', {'message': f'Failed to submit answer: {str(e)}'})
-
-@socketio.on('use_chaos_card')
-def handle_use_chaos_card(data):
-    room_code = data.get('room_code')
-    card_id = data.get('card_id')
-    target_data = data.get('target_data', {})
+            emit('answer_error', {'message': result.get('error', 'Failed to submit answer')})
     
-    try:
-        success, effect = game_manager.use_chaos_card(room_code, request.sid, card_id, target_data)
-        
-        if success:
-            print(f'💥 Chaos card used: {card_id} in room {room_code}')
-            emit('chaos_card_used', {
-                'card_id': card_id,
-                'effect': effect,
-                'player_sid': request.sid
-            }, room=room_code)
-        else:
-            emit('chaos_card_error', {'message': effect})
     except Exception as e:
-        print(f'❌ Error using chaos card: {str(e)}')
-        emit('chaos_card_error', {'message': f'Failed to use chaos card: {str(e)}'})
-
-@socketio.on('reveal_answer')
-def handle_reveal_answer(data):
-    room_code = data.get('room_code')
-    answer_index = data.get('answer_index')
-    
-    try:
-        success, result = game_manager.reveal_answer(room_code, request.sid, answer_index)
-        
-        if success:
-            emit('answer_revealed', result, room=room_code)
-        else:
-            emit('reveal_error', {'message': result})
-    except Exception as e:
-        print(f'❌ Error revealing answer: {str(e)}')
-        emit('reveal_error', {'message': f'Failed to reveal answer: {str(e)}'})
+        logger.error(f"Submit answer error: {e}")
+        emit('answer_error', {'message': 'Server error submitting answer'})
 
 @socketio.on('next_round')
 def handle_next_round(data):
-    room_code = data.get('room_code')
-    
+    """Handle next round"""
     try:
-        success, game_data = game_manager.next_round(room_code, request.sid)
+        room_code = data.get('room_code')
+        client_id = request.sid
         
-        if success:
-            print(f'➡️ Next round started in room: {room_code}')
-            emit('round_started', game_data, room=room_code)
+        if not room_code:
+            emit('round_error', {'message': 'Room code required'})
+            return
+        
+        # Verify host
+        room = game_manager.get_room(room_code)
+        if not room or room['host_sid'] != client_id:
+            emit('round_error', {'message': 'Only host can advance rounds'})
+            return
+        
+        # Next round
+        result = game_manager.next_round(room_code)
+        
+        if result.get('success'):
+            if result.get('game_ended'):
+                logger.info(f"🏆 Game ended in room: {room_code}")
+                socketio.emit('game_ended', result, room=room_code)
+            else:
+                logger.info(f"➡️ Next round in room: {room_code}")
+                socketio.emit('round_started', result, room=room_code)
         else:
-            emit('round_error', {'message': game_data})
-    except Exception as e:
-        print(f'❌ Error starting next round: {str(e)}')
-        emit('round_error', {'message': f'Failed to start next round: {str(e)}'})
-
-@socketio.on('player_ready')
-def handle_player_ready(data):
-    room_code = data.get('room_code')
+            emit('round_error', {'message': result.get('error', 'Failed to advance round')})
     
+    except Exception as e:
+        logger.error(f"Next round error: {e}")
+        emit('round_error', {'message': 'Server error advancing round'})
+
+@socketio.on('leave_room')
+def handle_leave_room(data):
+    """Handle leaving a room"""
     try:
-        success, message = game_manager.set_player_ready(room_code, request.sid)
+        room_code = data.get('room_code')
+        client_id = request.sid
         
-        if success:
-            emit('player_ready_updated', {
-                'player_sid': request.sid,
-                'message': message
-            }, room=room_code)
+        if room_code and client_id in connected_clients:
+            # Remove from game room
+            result = game_manager.remove_player(room_code, client_id)
             
-            # Check if all players are ready
-            if game_manager.all_players_ready(room_code):
-                game_data = game_manager.advance_game_state(room_code)
-                emit('all_players_ready', game_data, room=room_code)
-        else:
-            emit('ready_error', {'message': message})
+            # Leave socket room
+            leave_room(room_code)
+            
+            # Update client info
+            connected_clients[client_id]['room_code'] = None
+            
+            if result.get('success') and not result.get('room_deleted'):
+                # Notify remaining players
+                socketio.emit('room_updated', result['room_data'], room=room_code)
+            
+            logger.info(f"🚪 Player left room: {room_code}")
+    
     except Exception as e:
-        print(f'❌ Error setting player ready: {str(e)}')
-        emit('ready_error', {'message': f'Failed to set ready: {str(e)}'})
+        logger.error(f"Leave room error: {e}")
 
-# Static file serving for React frontend
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_frontend(path):
-    """Serve React frontend files and handle client-side routing"""
-    static_folder_path = app.static_folder
+@socketio.on('use_chaos_card')
+def handle_chaos_card(data):
+    """Handle chaos card usage"""
+    try:
+        room_code = data.get('room_code')
+        card_type = data.get('card_type')
+        client_id = request.sid
+        
+        # Simple chaos card implementation
+        logger.info(f"⚡ Chaos card used: {card_type} in room: {room_code}")
+        
+        socketio.emit('chaos_card_used', {
+            'card_type': card_type,
+            'player_sid': client_id
+        }, room=room_code)
     
-    if static_folder_path is None:
-        return "Static folder not configured", 404
-
-    # If requesting a specific file that exists, serve it
-    if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
-        return send_from_directory(static_folder_path, path)
-    
-    # For all other routes (client-side routing), serve index.html
-    index_path = os.path.join(static_folder_path, 'index.html')
-    if os.path.exists(index_path):
-        return send_from_directory(static_folder_path, 'index.html')
-    else:
-        return "Game not found. Please check if the frontend is built correctly.", 404
+    except Exception as e:
+        logger.error(f"Chaos card error: {e}")
 
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):
-    return serve_frontend('')
+    """Handle 404 errors by serving the React app"""
+    try:
+        return send_file(os.path.join(app.static_folder, 'index.html'))
+    except:
+        return jsonify({'error': 'Page not found'}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    return {
-        "error": "Internal server error",
-        "message": "Something went wrong on our end. Please try again."
-    }, 500
+    """Handle 500 errors"""
+    logger.error(f"Internal server error: {error}")
+    return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    # Get port from environment variable (Railway/Render/Heroku set this automatically)
+    import time
+    
+    # Get port from environment variable (for deployment)
     port = int(os.environ.get('PORT', 5000))
     
-    print("🎮 Starting Roast Royale Game Server...")
-    print(f"🌐 Server will run on: http://0.0.0.0:{port}")
-    print(f"🎯 Environment: {os.environ.get('FLASK_ENV', 'development')}")
-    print("🔥 Ready for epic roast battles!")
+    logger.info("🔥 Starting Roast Royale server...")
+    logger.info(f"📡 Server will run on port: {port}")
+    logger.info(f"📁 Static folder: {app.static_folder}")
+    logger.info(f"🎮 Questions loaded: {len(game_manager.questions)}")
     
-    # Start the server
-    # host='0.0.0.0' allows external connections (required for Railway/cloud hosting)
-    # port comes from environment variable for cloud deployment
+    # Run the server
     socketio.run(
         app, 
         host='0.0.0.0', 
         port=port, 
-        debug=False,  # Set to False for production
-        allow_unsafe_werkzeug=True  # Required for SocketIO in production
+        debug=False,
+        allow_unsafe_werkzeug=True
     )
 
