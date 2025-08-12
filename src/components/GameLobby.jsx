@@ -1,326 +1,611 @@
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { 
-  Users, 
-  Crown, 
-  ArrowLeft, 
-  Play,
-  Copy,
-  Check,
-  Settings,
-  Zap,
-  Target,
-  Timer
-} from 'lucide-react'
-import socketService from '@/services/socket'
+import React, { useState, useEffect } from 'react';
 
-const GameLobby = ({ roomData, isHost, onStartGame, onBackToHome, connected }) => {
-  const [copied, setCopied] = useState(false)
-  const [gameSettings, setGameSettings] = useState({
-    rounds: 5,
-    timePerQuestion: 30,
-    chaosCardsEnabled: true,
-    roastModeEnabled: true
-  })
+const GameLobby = ({ 
+  roomData, 
+  gameState, 
+  onStartGame, 
+  onBackToHome, 
+  onUpdateSettings,
+  socketService 
+}) => {
+  const [hoveredPlayer, setHoveredPlayer] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
-  // Safe access to room data
-  const roomCode = roomData?.room_code || ''
-  const players = roomData?.players || []
-  const hostPlayer = players.find(p => p.is_host)
-  const currentSocketId = socketService.socket?.id
-  const currentPlayer = players.find(p => p.sid === currentSocketId)
-  const isCurrentUserHost = currentPlayer?.is_host || false
-  const canStartGame = isCurrentUserHost && players.length >= 2
+  const roomCode = roomData?.room_code || gameState?.roomCode || '';
+  const players = roomData?.players || [];
+  const settings = roomData?.settings || {};
+  const currentSocketId = socketService?.socket?.id;
+  
+  // Find current player and check if host
+  const currentPlayer = players.find(p => p.sid === currentSocketId);
+  const isHost = currentPlayer?.is_host || false;
+  const canStartGame = isHost && players.length >= 2;
 
   const copyRoomCode = async () => {
     try {
-      await navigator.clipboard.writeText(roomCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      await navigator.clipboard.writeText(roomCode);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
     } catch (err) {
-      // Fallback for browsers that don't support clipboard API
-      const textArea = document.createElement('textarea')
-      textArea.value = roomCode
-      document.body.appendChild(textArea)
-      textArea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textArea)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      console.log('Failed to copy room code');
     }
-  }
-
-  const handleStartGame = () => {
-    if (!canStartGame) {
-      if (!isCurrentUserHost) {
-        alert('Only the host can start the game.')
-      } else if (players.length < 2) {
-        alert('Need at least 2 players to start the game.')
-      }
-      return
-    }
-    
-    onStartGame(gameSettings)
-  }
+  };
 
   const handleSettingChange = (setting, value) => {
-    setGameSettings(prev => ({
-      ...prev,
-      [setting]: value
-    }))
-  }
+    if (isHost && onUpdateSettings) {
+      onUpdateSettings({ [setting]: value });
+    }
+  };
+
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+      color: '#ffffff',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    backgroundPattern: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundImage: `
+        radial-gradient(circle at 20% 20%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 60%, rgba(0, 255, 136, 0.05) 0%, transparent 50%)
+      `,
+      zIndex: 1,
+    },
+    content: {
+      position: 'relative',
+      zIndex: 2,
+      padding: '2rem',
+      maxWidth: '1200px',
+      margin: '0 auto',
+      minHeight: '100vh',
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '2rem',
+      flexWrap: 'wrap',
+      gap: '1rem',
+    },
+    backButton: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.5rem',
+      padding: '0.75rem 1.5rem',
+      background: 'rgba(42, 42, 42, 0.8)',
+      border: '1px solid #333333',
+      borderRadius: '8px',
+      color: '#ffffff',
+      textDecoration: 'none',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      fontSize: '0.875rem',
+      fontWeight: '500',
+    },
+    backButtonHover: {
+      background: 'rgba(239, 68, 68, 0.2)',
+      borderColor: '#ef4444',
+      transform: 'translateY(-2px)',
+    },
+    title: {
+      fontSize: '2.5rem',
+      fontWeight: '800',
+      background: 'linear-gradient(135deg, #00d4ff, #8b5cf6)',
+      backgroundClip: 'text',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      textAlign: 'center',
+      flex: 1,
+    },
+    mainGrid: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '2rem',
+      marginBottom: '2rem',
+    },
+    card: {
+      background: 'rgba(42, 42, 42, 0.8)',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid #333333',
+      borderRadius: '16px',
+      padding: '2rem',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    },
+    cardTitle: {
+      fontSize: '1.5rem',
+      fontWeight: '700',
+      marginBottom: '1.5rem',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+    },
+    roomCodeSection: {
+      textAlign: 'center',
+      marginBottom: '1.5rem',
+    },
+    roomCodeDisplay: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '1rem',
+      padding: '1rem 2rem',
+      background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(139, 92, 246, 0.1))',
+      border: '2px solid #00d4ff',
+      borderRadius: '12px',
+      fontSize: '2rem',
+      fontWeight: '800',
+      letterSpacing: '0.2em',
+      color: '#00d4ff',
+      boxShadow: '0 0 20px rgba(0, 212, 255, 0.3)',
+    },
+    copyButton: {
+      padding: '0.5rem',
+      background: 'rgba(0, 212, 255, 0.2)',
+      border: '1px solid #00d4ff',
+      borderRadius: '6px',
+      color: '#00d4ff',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      fontSize: '1rem',
+    },
+    copyButtonHover: {
+      background: '#00d4ff',
+      color: '#0a0a0a',
+      transform: 'scale(1.1)',
+    },
+    playersList: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.75rem',
+    },
+    player: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '1rem',
+      padding: '1rem',
+      background: 'rgba(26, 26, 26, 0.8)',
+      border: '1px solid #333333',
+      borderRadius: '8px',
+      transition: 'all 0.3s ease',
+    },
+    playerHover: {
+      borderColor: '#00d4ff',
+      boxShadow: '0 0 15px rgba(0, 212, 255, 0.2)',
+    },
+    playerAvatar: {
+      width: '40px',
+      height: '40px',
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, #00d4ff, #8b5cf6)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '1.25rem',
+      fontWeight: '700',
+      color: '#ffffff',
+    },
+    playerInfo: {
+      flex: 1,
+    },
+    playerName: {
+      fontSize: '1rem',
+      fontWeight: '600',
+      color: '#ffffff',
+    },
+    playerBadge: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.25rem',
+      padding: '0.25rem 0.5rem',
+      borderRadius: '12px',
+      fontSize: '0.75rem',
+      fontWeight: '600',
+      marginTop: '0.25rem',
+    },
+    hostBadge: {
+      background: 'rgba(0, 255, 136, 0.2)',
+      color: '#00ff88',
+      border: '1px solid rgba(0, 255, 136, 0.3)',
+    },
+    youBadge: {
+      background: 'rgba(0, 212, 255, 0.2)',
+      color: '#00d4ff',
+      border: '1px solid rgba(0, 212, 255, 0.3)',
+    },
+    settingsGrid: {
+      display: 'grid',
+      gap: '1.5rem',
+    },
+    settingItem: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '1rem',
+      background: 'rgba(26, 26, 26, 0.8)',
+      border: '1px solid #333333',
+      borderRadius: '8px',
+    },
+    settingLabel: {
+      fontSize: '1rem',
+      fontWeight: '500',
+      color: '#ffffff',
+    },
+    settingControls: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+    },
+    settingButton: {
+      width: '32px',
+      height: '32px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'rgba(0, 212, 255, 0.2)',
+      border: '1px solid #00d4ff',
+      borderRadius: '6px',
+      color: '#00d4ff',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      fontSize: '1rem',
+      fontWeight: '700',
+    },
+    settingButtonHover: {
+      background: '#00d4ff',
+      color: '#0a0a0a',
+      transform: 'scale(1.1)',
+    },
+    settingValue: {
+      fontSize: '1rem',
+      fontWeight: '600',
+      color: '#ffffff',
+      minWidth: '40px',
+      textAlign: 'center',
+    },
+    toggleButton: {
+      padding: '0.5rem 1rem',
+      background: 'rgba(139, 92, 246, 0.2)',
+      border: '1px solid #8b5cf6',
+      borderRadius: '6px',
+      color: '#8b5cf6',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      fontSize: '0.875rem',
+      fontWeight: '600',
+    },
+    toggleButtonActive: {
+      background: '#8b5cf6',
+      color: '#ffffff',
+    },
+    startSection: {
+      textAlign: 'center',
+      padding: '2rem',
+      background: 'rgba(42, 42, 42, 0.8)',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid #333333',
+      borderRadius: '16px',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    },
+    startButton: {
+      padding: '1rem 3rem',
+      background: 'linear-gradient(135deg, #00ff88, #00d4ff)',
+      border: 'none',
+      borderRadius: '12px',
+      color: '#0a0a0a',
+      fontSize: '1.25rem',
+      fontWeight: '700',
+      cursor: 'pointer',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      boxShadow: '0 4px 20px rgba(0, 255, 136, 0.3)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+    },
+    startButtonHover: {
+      transform: 'translateY(-3px)',
+      boxShadow: '0 8px 30px rgba(0, 255, 136, 0.5)',
+    },
+    startButtonDisabled: {
+      background: 'rgba(71, 71, 71, 0.5)',
+      color: '#71717a',
+      cursor: 'not-allowed',
+      transform: 'none',
+      boxShadow: 'none',
+    },
+    statusMessage: {
+      fontSize: '1rem',
+      color: '#a1a1aa',
+      marginBottom: '1.5rem',
+    },
+    shareText: {
+      fontSize: '0.875rem',
+      color: '#71717a',
+      marginTop: '1rem',
+      lineHeight: '1.5',
+    },
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
-
-      {/* Back Button */}
-      <div className="absolute top-4 left-4 z-10">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onBackToHome}
-          className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Leave Game
-        </Button>
-      </div>
-
-      <div className="max-w-4xl w-full space-y-8 relative z-10">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-pink-400 to-purple-600 bg-clip-text text-transparent">
-            Game Lobby
-          </h1>
-          
-          {/* Room Code */}
-          <div className="flex items-center justify-center gap-4">
-            <div className="text-white/70">Room Code:</div>
-            <div className="flex items-center gap-2">
-              <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 text-2xl font-mono px-4 py-2">
-                {roomCode}
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={copyRoomCode}
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-              >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              </Button>
-            </div>
-          </div>
+    <div style={styles.container}>
+      <div style={styles.backgroundPattern}></div>
+      <div style={styles.content}>
+        <div style={styles.header}>
+          <button
+            onClick={onBackToHome}
+            style={styles.backButton}
+            onMouseEnter={(e) => Object.assign(e.target.style, styles.backButtonHover)}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'rgba(42, 42, 42, 0.8)';
+              e.target.style.borderColor = '#333333';
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
+            ← Leave Game
+          </button>
+          <h1 style={styles.title}>Game Lobby</h1>
+          <div></div>
         </div>
 
-        {/* Players */}
-        <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Users className="w-5 h-5" />
+        <div style={styles.mainGrid}>
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>
+              <span>👥</span>
               Players ({players.length})
-            </CardTitle>
-            <CardDescription className="text-white/70">
-              {hostPlayer ? `${hostPlayer.name} is the host` : 'Waiting for host...'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3">
-              {players.map((player) => (
-                <div
-                  key={player.sid}
-                  className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10"
+            </h2>
+            
+            <div style={styles.roomCodeSection}>
+              <div style={styles.roomCodeDisplay}>
+                <span>{roomCode}</span>
+                <button
+                  onClick={copyRoomCode}
+                  style={styles.copyButton}
+                  onMouseEnter={(e) => Object.assign(e.target.style, styles.copyButtonHover)}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = 'rgba(0, 212, 255, 0.2)';
+                    e.target.style.color = '#00d4ff';
+                    e.target.style.transform = 'scale(1)';
+                  }}
+                  title="Copy room code"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold">
-                        {player.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="text-white font-medium">
-                        {player.name}
-                        {player.sid === currentSocketId && (
-                          <Badge className="ml-2 bg-green-500/20 text-green-300 border-green-500/30">
-                            You
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
+                  {copiedCode ? '✓' : '📋'}
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.playersList}>
+              {players.map((player, index) => (
+                <div
+                  key={player.sid || index}
+                  style={{
+                    ...styles.player,
+                    ...(hoveredPlayer === index && styles.playerHover)
+                  }}
+                  onMouseEnter={() => setHoveredPlayer(index)}
+                  onMouseLeave={() => setHoveredPlayer(null)}
+                >
+                  <div style={styles.playerAvatar}>
+                    {player.name?.charAt(0)?.toUpperCase() || '?'}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {player.is_host && (
-                      <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30">
-                        <Crown className="w-3 h-3 mr-1" />
-                        Host
-                      </Badge>
-                    )}
-                    <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                  <div style={styles.playerInfo}>
+                    <div style={styles.playerName}>{player.name}</div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {player.is_host && (
+                        <span style={{ ...styles.playerBadge, ...styles.hostBadge }}>
+                          👑 Host
+                        </span>
+                      )}
+                      {player.sid === currentSocketId && (
+                        <span style={{ ...styles.playerBadge, ...styles.youBadge }}>
+                          You
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
               
-              {/* Placeholder for more players */}
-              {players.length < 8 && (
-                <div className="flex items-center justify-center p-3 bg-white/5 rounded-lg border border-white/10 border-dashed">
-                  <div className="text-white/50">Waiting for more players...</div>
+              {players.length < 10 && (
+                <div style={styles.player}>
+                  <div style={{ ...styles.playerAvatar, background: 'rgba(71, 71, 71, 0.5)' }}>
+                    +
+                  </div>
+                  <div style={styles.playerInfo}>
+                    <div style={{ ...styles.playerName, color: '#71717a' }}>
+                      Waiting for more players...
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Game Settings - Only show for host */}
-        {isCurrentUserHost && (
-          <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Game Settings
-              </CardTitle>
-              <CardDescription className="text-white/70">
-                Customize your game experience
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Timer className="w-4 h-4 text-white/70" />
-                      <span className="text-white">Rounds: {gameSettings.rounds}</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSettingChange('rounds', Math.max(3, gameSettings.rounds - 1))}
-                        className="bg-white/10 border-white/20 text-white hover:bg-white/20 w-8 h-8 p-0"
-                      >
-                        -
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSettingChange('rounds', Math.min(10, gameSettings.rounds + 1))}
-                        className="bg-white/10 border-white/20 text-white hover:bg-white/20 w-8 h-8 p-0"
-                      >
-                        +
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Timer className="w-4 h-4 text-white/70" />
-                      <span className="text-white">Time per question: {gameSettings.timePerQuestion}s</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSettingChange('timePerQuestion', Math.max(15, gameSettings.timePerQuestion - 5))}
-                        className="bg-white/10 border-white/20 text-white hover:bg-white/20 w-8 h-8 p-0"
-                      >
-                        -
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSettingChange('timePerQuestion', Math.min(60, gameSettings.timePerQuestion + 5))}
-                        className="bg-white/10 border-white/20 text-white hover:bg-white/20 w-8 h-8 p-0"
-                      >
-                        +
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-yellow-400" />
-                      <span className="text-white">Chaos Cards</span>
-                    </div>
-                    <Switch
-                      checked={gameSettings.chaosCardsEnabled}
-                      onCheckedChange={(checked) => handleSettingChange('chaosCardsEnabled', checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-red-400" />
-                      <span className="text-white">Roast Mode</span>
-                    </div>
-                    <Switch
-                      checked={gameSettings.roastModeEnabled}
-                      onCheckedChange={(checked) => handleSettingChange('roastModeEnabled', checked)}
-                    />
-                  </div>
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>
+              <span>⚙️</span>
+              Game Settings
+            </h2>
+            
+            <div style={styles.settingsGrid}>
+              <div style={styles.settingItem}>
+                <span style={styles.settingLabel}>Rounds</span>
+                <div style={styles.settingControls}>
+                  <button
+                    onClick={() => handleSettingChange('rounds', Math.max(1, (settings.rounds || 5) - 1))}
+                    disabled={!isHost}
+                    style={{
+                      ...styles.settingButton,
+                      opacity: isHost ? 1 : 0.5,
+                      cursor: isHost ? 'pointer' : 'not-allowed',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (isHost) Object.assign(e.target.style, styles.settingButtonHover);
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isHost) {
+                        e.target.style.background = 'rgba(0, 212, 255, 0.2)';
+                        e.target.style.color = '#00d4ff';
+                        e.target.style.transform = 'scale(1)';
+                      }
+                    }}
+                  >
+                    -
+                  </button>
+                  <span style={styles.settingValue}>{settings.rounds || 5}</span>
+                  <button
+                    onClick={() => handleSettingChange('rounds', Math.min(10, (settings.rounds || 5) + 1))}
+                    disabled={!isHost}
+                    style={{
+                      ...styles.settingButton,
+                      opacity: isHost ? 1 : 0.5,
+                      cursor: isHost ? 'pointer' : 'not-allowed',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (isHost) Object.assign(e.target.style, styles.settingButtonHover);
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isHost) {
+                        e.target.style.background = 'rgba(0, 212, 255, 0.2)';
+                        e.target.style.color = '#00d4ff';
+                        e.target.style.transform = 'scale(1)';
+                      }
+                    }}
+                  >
+                    +
+                  </button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Start Game Button */}
-        <div className="text-center space-y-4">
-          {isCurrentUserHost ? (
-            <Button
-              onClick={handleStartGame}
-              disabled={!canStartGame || !connected}
-              size="lg"
-              className={`font-bold py-4 px-8 text-lg shadow-lg hover:shadow-xl transition-all duration-300 ${
-                canStartGame && connected
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
-                  : 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
-              }`}
-            >
-              <Play className="w-5 h-5 mr-2" />
-              Start the Roast Battle
-            </Button>
-          ) : (
-            <div className="text-white/70 text-lg">
-              Waiting for {hostPlayer?.name || 'host'} to start the game...
-            </div>
-          )}
+              <div style={styles.settingItem}>
+                <span style={styles.settingLabel}>Time per Question</span>
+                <div style={styles.settingControls}>
+                  <button
+                    onClick={() => handleSettingChange('timePerQuestion', Math.max(10, (settings.timePerQuestion || 30) - 5))}
+                    disabled={!isHost}
+                    style={{
+                      ...styles.settingButton,
+                      opacity: isHost ? 1 : 0.5,
+                      cursor: isHost ? 'pointer' : 'not-allowed',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (isHost) Object.assign(e.target.style, styles.settingButtonHover);
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isHost) {
+                        e.target.style.background = 'rgba(0, 212, 255, 0.2)';
+                        e.target.style.color = '#00d4ff';
+                        e.target.style.transform = 'scale(1)';
+                      }
+                    }}
+                  >
+                    -
+                  </button>
+                  <span style={styles.settingValue}>{settings.timePerQuestion || 30}s</span>
+                  <button
+                    onClick={() => handleSettingChange('timePerQuestion', Math.min(60, (settings.timePerQuestion || 30) + 5))}
+                    disabled={!isHost}
+                    style={{
+                      ...styles.settingButton,
+                      opacity: isHost ? 1 : 0.5,
+                      cursor: isHost ? 'pointer' : 'not-allowed',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (isHost) Object.assign(e.target.style, styles.settingButtonHover);
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isHost) {
+                        e.target.style.background = 'rgba(0, 212, 255, 0.2)';
+                        e.target.style.color = '#00d4ff';
+                        e.target.style.transform = 'scale(1)';
+                      }
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
 
-          {!connected && (
-            <div className="text-center">
-              <Badge className="bg-red-500/20 text-red-300 border-red-500/30">
-                Disconnected - Reconnecting...
-              </Badge>
-            </div>
-          )}
+              <div style={styles.settingItem}>
+                <span style={styles.settingLabel}>Chaos Cards</span>
+                <button
+                  onClick={() => handleSettingChange('chaosCards', !settings.chaosCards)}
+                  disabled={!isHost}
+                  style={{
+                    ...styles.toggleButton,
+                    ...(settings.chaosCards && styles.toggleButtonActive),
+                    opacity: isHost ? 1 : 0.5,
+                    cursor: isHost ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {settings.chaosCards ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
 
-          {players.length < 2 && (
-            <div className="text-white/50 text-sm">
-              Need at least 2 players to start the game
+              <div style={styles.settingItem}>
+                <span style={styles.settingLabel}>Roast Mode</span>
+                <button
+                  onClick={() => handleSettingChange('roastMode', !settings.roastMode)}
+                  disabled={!isHost}
+                  style={{
+                    ...styles.toggleButton,
+                    ...(settings.roastMode && styles.toggleButtonActive),
+                    opacity: isHost ? 1 : 0.5,
+                    cursor: isHost ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {settings.roastMode ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Instructions */}
-        <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
-          <CardContent className="pt-6">
-            <div className="text-center text-white/70">
-              <p className="text-lg mb-2">Share the room code with your friends!</p>
-              <p className="text-sm">They can join by entering the code on the home page.</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div style={styles.startSection}>
+          <div style={styles.statusMessage}>
+            {canStartGame 
+              ? `Ready to start! ${players.find(p => p.is_host)?.name || 'Host'} can begin the roast battle.`
+              : players.length < 2 
+                ? 'Need at least 2 players to start the game'
+                : !isHost 
+                  ? `Waiting for ${players.find(p => p.is_host)?.name || 'host'} to start the game...`
+                  : 'Ready to start!'
+            }
+          </div>
+          
+          <button
+            onClick={onStartGame}
+            disabled={!canStartGame}
+            style={{
+              ...styles.startButton,
+              ...(!canStartGame && styles.startButtonDisabled)
+            }}
+            onMouseEnter={(e) => {
+              if (canStartGame) Object.assign(e.target.style, styles.startButtonHover);
+            }}
+            onMouseLeave={(e) => {
+              if (canStartGame) {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 20px rgba(0, 255, 136, 0.3)';
+              }
+            }}
+          >
+            🔥 Start the Roast Battle
+          </button>
+
+          <div style={styles.shareText}>
+            Share the room code <strong>{roomCode}</strong> with your friends!  
+
+            They can join by entering the code on the home page.
+          </div>
+        </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default GameLobby
-
+export default GameLobby;
