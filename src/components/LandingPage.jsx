@@ -1,387 +1,432 @@
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react';
 
-const LandingPage = ({ onCreateRoom, onJoinRoom, connected, connectionStatus }) => {
-  const [createPlayerName, setCreatePlayerName] = useState('')
-  const [joinPlayerName, setJoinPlayerName] = useState('')
-  const [joinRoomCode, setJoinRoomCode] = useState('')
+const LandingPage = ({ 
+  onCreateRoom, 
+  onJoinRoom, 
+  connectionStatus, 
+  onReconnect 
+}) => {
+  const [createName, setCreateName] = useState('');
+  const [joinName, setJoinName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleCreateRoom = () => {
-    if (!createPlayerName.trim()) {
-      alert('Please enter your name')
-      return
-    }
-    if (!connected) {
-      alert('Not connected to server. Please wait for connection.')
-      return
-    }
-    onCreateRoom(createPlayerName.trim())
-  }
+  const handleCreateRoom = async () => {
+    if (!createName.trim()) return;
+    setIsLoading(true);
+    await onCreateRoom(createName.trim());
+    setIsLoading(false);
+  };
 
-  const handleJoinRoom = () => {
-    if (!joinPlayerName.trim()) {
-      alert('Please enter your name')
-      return
-    }
-    if (!joinRoomCode.trim()) {
-      alert('Please enter a room code')
-      return
-    }
-    if (!connected) {
-      alert('Not connected to server. Please wait for connection.')
-      return
-    }
-    onJoinRoom(joinRoomCode.trim().toUpperCase(), joinPlayerName.trim())
-  }
+  const handleJoinRoom = async () => {
+    if (!joinName.trim() || !joinCode.trim()) return;
+    setIsLoading(true);
+    await onJoinRoom(joinName.trim(), joinCode.trim().toUpperCase());
+    setIsLoading(false);
+  };
 
   const styles = {
     container: {
       minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      fontFamily: 'Arial, sans-serif',
+      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+      color: '#ffffff',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       position: 'relative',
-      overflow: 'hidden'
+      overflow: 'hidden',
     },
-    backgroundBlob1: {
+    backgroundPattern: {
       position: 'absolute',
-      top: '-200px',
-      right: '-200px',
-      width: '400px',
-      height: '400px',
-      background: 'rgba(147, 51, 234, 0.2)',
-      borderRadius: '50%',
-      filter: 'blur(60px)',
-      animation: 'pulse 3s infinite'
-    },
-    backgroundBlob2: {
-      position: 'absolute',
-      bottom: '-200px',
-      left: '-200px',
-      width: '400px',
-      height: '400px',
-      background: 'rgba(59, 130, 246, 0.2)',
-      borderRadius: '50%',
-      filter: 'blur(60px)',
-      animation: 'pulse 3s infinite 1s'
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundImage: `
+        radial-gradient(circle at 20% 20%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 60%, rgba(0, 255, 136, 0.05) 0%, transparent 50%)
+      `,
+      zIndex: 1,
     },
     content: {
-      maxWidth: '1000px',
-      width: '100%',
       position: 'relative',
-      zIndex: 10
+      zIndex: 2,
+      padding: '2rem',
+      maxWidth: '1200px',
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      minHeight: '100vh',
+      justifyContent: 'center',
     },
     header: {
       textAlign: 'center',
-      marginBottom: '40px'
+      marginBottom: '3rem',
     },
     title: {
-      fontSize: '4rem',
-      fontWeight: 'bold',
-      background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1)',
+      fontSize: '3.5rem',
+      fontWeight: '800',
+      background: 'linear-gradient(135deg, #00d4ff, #8b5cf6, #00ff88)',
+      backgroundClip: 'text',
       WebkitBackgroundClip: 'text',
       WebkitTextFillColor: 'transparent',
-      marginBottom: '20px',
-      textShadow: '0 4px 8px rgba(0,0,0,0.3)'
+      marginBottom: '1rem',
+      textShadow: '0 0 30px rgba(0, 212, 255, 0.3)',
     },
     subtitle: {
-      fontSize: '1.5rem',
-      color: 'rgba(255,255,255,0.9)',
-      marginBottom: '30px'
+      fontSize: '1.25rem',
+      color: '#a1a1aa',
+      marginBottom: '2rem',
+      maxWidth: '600px',
     },
-    badges: {
-      display: 'flex',
-      flexWrap: 'wrap',
-      justifyContent: 'center',
-      gap: '10px',
-      marginBottom: '20px'
-    },
-    badge: {
-      background: 'rgba(255,255,255,0.1)',
-      color: 'rgba(255,255,255,0.9)',
-      padding: '8px 16px',
+    connectionStatus: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.5rem',
+      padding: '0.5rem 1rem',
       borderRadius: '20px',
-      border: '1px solid rgba(255,255,255,0.2)',
-      fontSize: '0.9rem',
-      backdropFilter: 'blur(10px)'
+      fontSize: '0.875rem',
+      fontWeight: '600',
+      marginBottom: '2rem',
+      background: connectionStatus === 'Connected' 
+        ? 'rgba(0, 255, 136, 0.1)' 
+        : 'rgba(239, 68, 68, 0.1)',
+      border: connectionStatus === 'Connected' 
+        ? '1px solid rgba(0, 255, 136, 0.3)' 
+        : '1px solid rgba(239, 68, 68, 0.3)',
+      color: connectionStatus === 'Connected' ? '#00ff88' : '#ef4444',
     },
-    cardsContainer: {
+    gameSection: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-      gap: '30px',
-      marginBottom: '40px'
+      gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+      gap: '2rem',
+      width: '100%',
+      maxWidth: '800px',
+      marginBottom: '3rem',
     },
     card: {
-      background: 'rgba(255,255,255,0.1)',
-      border: '1px solid rgba(255,255,255,0.2)',
-      borderRadius: '20px',
-      padding: '30px',
+      background: 'rgba(42, 42, 42, 0.8)',
       backdropFilter: 'blur(10px)',
-      transition: 'all 0.3s ease',
-      cursor: 'pointer'
+      border: '1px solid #333333',
+      borderRadius: '16px',
+      padding: '2rem',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      position: 'relative',
+      overflow: 'hidden',
     },
     cardHover: {
-      background: 'rgba(255,255,255,0.15)',
-      transform: 'translateY(-5px)',
-      boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+      transform: 'translateY(-4px)',
+      boxShadow: '0 12px 40px rgba(0, 212, 255, 0.2)',
+      borderColor: '#00d4ff',
     },
     cardIcon: {
       width: '60px',
       height: '60px',
-      background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)',
       borderRadius: '50%',
+      background: 'linear-gradient(135deg, #00d4ff, #8b5cf6)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      margin: '0 auto 20px',
-      fontSize: '24px'
+      fontSize: '1.5rem',
+      marginBottom: '1.5rem',
+      boxShadow: '0 4px 20px rgba(0, 212, 255, 0.3)',
     },
     cardTitle: {
-      color: 'white',
-      fontSize: '1.8rem',
-      fontWeight: 'bold',
-      marginBottom: '10px',
-      textAlign: 'center'
+      fontSize: '1.5rem',
+      fontWeight: '700',
+      marginBottom: '0.5rem',
+      color: '#ffffff',
     },
     cardDescription: {
-      color: 'rgba(255,255,255,0.8)',
-      fontSize: '1.1rem',
-      marginBottom: '20px',
-      textAlign: 'center'
+      color: '#a1a1aa',
+      marginBottom: '1.5rem',
+      lineHeight: '1.6',
+    },
+    inputGroup: {
+      marginBottom: '1rem',
     },
     input: {
       width: '100%',
-      padding: '15px',
-      marginBottom: '15px',
-      background: 'rgba(255,255,255,0.1)',
-      border: '1px solid rgba(255,255,255,0.2)',
-      borderRadius: '10px',
-      color: 'white',
-      fontSize: '1.1rem',
-      outline: 'none'
+      padding: '12px 16px',
+      background: 'rgba(26, 26, 26, 0.8)',
+      border: '2px solid #333333',
+      borderRadius: '8px',
+      color: '#ffffff',
+      fontSize: '1rem',
+      transition: 'all 0.3s ease',
+      outline: 'none',
+    },
+    inputFocus: {
+      borderColor: '#00d4ff',
+      boxShadow: '0 0 0 3px rgba(0, 212, 255, 0.1)',
     },
     button: {
       width: '100%',
-      padding: '15px',
-      background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)',
+      padding: '14px 24px',
+      background: 'linear-gradient(135deg, #00d4ff, #8b5cf6)',
       border: 'none',
-      borderRadius: '10px',
-      color: 'white',
-      fontSize: '1.2rem',
-      fontWeight: 'bold',
+      borderRadius: '8px',
+      color: '#ffffff',
+      fontSize: '1rem',
+      fontWeight: '600',
       cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    buttonHover: {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 8px 25px rgba(0, 212, 255, 0.4)',
     },
     buttonDisabled: {
-      background: 'rgba(255,255,255,0.2)',
+      opacity: '0.5',
       cursor: 'not-allowed',
-      opacity: 0.6
+      transform: 'none',
     },
-    gameModesCard: {
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: '20px',
-      padding: '30px',
-      marginBottom: '20px'
+    features: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+      gap: '1rem',
+      width: '100%',
+      maxWidth: '800px',
+      marginBottom: '2rem',
+    },
+    feature: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      padding: '1rem',
+      background: 'rgba(42, 42, 42, 0.5)',
+      borderRadius: '8px',
+      border: '1px solid #333333',
+    },
+    featureIcon: {
+      fontSize: '1.25rem',
+    },
+    featureText: {
+      fontSize: '0.875rem',
+      fontWeight: '500',
+    },
+    gameModes: {
+      textAlign: 'center',
+      width: '100%',
+      maxWidth: '600px',
     },
     gameModesTitle: {
-      color: 'white',
-      fontSize: '1.8rem',
-      fontWeight: 'bold',
-      textAlign: 'center',
-      marginBottom: '20px'
+      fontSize: '1.5rem',
+      fontWeight: '700',
+      marginBottom: '1rem',
+      color: '#ffffff',
     },
-    gameModesGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-      gap: '20px',
-      textAlign: 'center'
+    modesList: {
+      display: 'flex',
+      justifyContent: 'center',
+      gap: '1rem',
+      flexWrap: 'wrap',
     },
-    gameModeItem: {
-      color: 'white'
-    },
-    gameModeNumber: {
-      fontSize: '2rem',
-      fontWeight: 'bold',
-      marginBottom: '5px'
-    },
-    gameModeDescription: {
-      color: 'rgba(255,255,255,0.7)',
-      fontSize: '0.9rem'
-    },
-    connectionStatus: {
-      textAlign: 'center',
-      marginTop: '20px'
-    },
-    statusBadge: {
-      background: connected ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-      color: connected ? '#22c55e' : '#ef4444',
-      border: `1px solid ${connected ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-      padding: '8px 16px',
+    mode: {
+      padding: '0.5rem 1rem',
+      background: 'rgba(139, 92, 246, 0.2)',
+      border: '1px solid rgba(139, 92, 246, 0.3)',
       borderRadius: '20px',
-      fontSize: '0.9rem'
-    }
-  }
+      fontSize: '0.875rem',
+      fontWeight: '600',
+      color: '#8b5cf6',
+    },
+  };
 
   return (
     <div style={styles.container}>
-      <div style={styles.backgroundBlob1}></div>
-      <div style={styles.backgroundBlob2}></div>
-      
+      <div style={styles.backgroundPattern}></div>
       <div style={styles.content}>
-        {/* Header */}
         <div style={styles.header}>
-          <h1 style={styles.title}>👑 Roast Royale 👑</h1>
-          <p style={styles.subtitle}>Think you know your friends? Think again.</p>
+          <h1 style={styles.title}>👑 Roast Royale</h1>
+          <p style={styles.subtitle}>
+            The ultimate party game where friends roast each other with hilarious questions and trending topics. Perfect for streamers, Discord groups, and game nights!
+          </p>
           
-          <div style={styles.badges}>
-            <span style={styles.badge}>❤️ Multiple Choice Questions</span>
-            <span style={styles.badge}>✨ Trending Topics</span>
-            <span style={styles.badge}>🎯 Perfect for Streamers</span>
+          <div style={styles.connectionStatus}>
+            <span>{connectionStatus === 'Connected' ? '✅' : '❌'}</span>
+            {connectionStatus}
+            {connectionStatus !== 'Connected' && (
+              <button 
+                onClick={onReconnect}
+                style={{
+                  marginLeft: '0.5rem',
+                  padding: '0.25rem 0.5rem',
+                  background: '#ef4444',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: '#ffffff',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Retry
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Main Actions */}
-        <div style={styles.cardsContainer}>
-          {/* Create Room */}
-          <div style={styles.card}>
+        <div style={styles.features}>
+          <div style={styles.feature}>
+            <span style={styles.featureIcon}>🎯</span>
+            <span style={styles.featureText}>Multiple Choice Questions</span>
+          </div>
+          <div style={styles.feature}>
+            <span style={styles.featureIcon}>🔥</span>
+            <span style={styles.featureText}>Trending Topics</span>
+          </div>
+          <div style={styles.feature}>
+            <span style={styles.featureIcon}>📺</span>
+            <span style={styles.featureText}>Perfect for Streamers</span>
+          </div>
+          <div style={styles.feature}>
+            <span style={styles.featureIcon}>⚡</span>
+            <span style={styles.featureText}>Real-time Multiplayer</span>
+          </div>
+        </div>
+
+        <div style={styles.gameSection}>
+          <div 
+            style={styles.card}
+            onMouseEnter={(e) => {
+              Object.assign(e.currentTarget.style, styles.cardHover);
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.3)';
+              e.currentTarget.style.borderColor = '#333333';
+            }}
+          >
             <div style={styles.cardIcon}>🎮</div>
-            <h2 style={styles.cardTitle}>Create Room</h2>
-            <p style={styles.cardDescription}>Start a new game and invite your friends</p>
-            
-            <input
-              style={styles.input}
-              placeholder="Enter your name"
-              value={createPlayerName}
-              onChange={(e) => setCreatePlayerName(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleCreateRoom()}
-            />
+            <h3 style={styles.cardTitle}>Create Room</h3>
+            <p style={styles.cardDescription}>
+              Start a new game and invite your friends to join the roast battle
+            </p>
+            <div style={styles.inputGroup}>
+              <input
+                type="text"
+                placeholder="Enter your name"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                style={styles.input}
+                onFocus={(e) => Object.assign(e.target.style, styles.inputFocus)}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#333333';
+                  e.target.style.boxShadow = 'none';
+                }}
+                maxLength={20}
+              />
+            </div>
             <button
-              style={{
-                ...styles.button,
-                ...((!connected || !createPlayerName.trim()) ? styles.buttonDisabled : {})
-              }}
               onClick={handleCreateRoom}
-              disabled={!connected || !createPlayerName.trim()}
-              onMouseOver={(e) => {
-                if (connected && createPlayerName.trim()) {
-                  e.target.style.transform = 'translateY(-2px)'
-                  e.target.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'
-                }
-              }}
-              onMouseOut={(e) => {
-                e.target.style.transform = 'translateY(0)'
-                e.target.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)'
-              }}
-            >
-              👥 Create Game Room
-            </button>
-          </div>
-
-          {/* Join Room */}
-          <div style={styles.card}>
-            <div style={styles.cardIcon}>👥</div>
-            <h2 style={styles.cardTitle}>Join Room</h2>
-            <p style={styles.cardDescription}>Enter a room code to join an existing game</p>
-            
-            <input
-              style={styles.input}
-              placeholder="Enter your name"
-              value={joinPlayerName}
-              onChange={(e) => setJoinPlayerName(e.target.value)}
-            />
-            <input
-              style={{...styles.input, fontFamily: 'monospace', textTransform: 'uppercase'}}
-              placeholder="Room code (e.g. ABC123)"
-              value={joinRoomCode}
-              onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
-              maxLength={6}
-              onKeyPress={(e) => e.key === 'Enter' && handleJoinRoom()}
-            />
-            <button
+              disabled={!createName.trim() || isLoading || connectionStatus !== 'Connected'}
               style={{
                 ...styles.button,
-                background: 'linear-gradient(45deg, #4ecdc4, #44a08d)',
-                ...((!connected || !joinPlayerName.trim() || !joinRoomCode.trim()) ? styles.buttonDisabled : {})
+                ...((!createName.trim() || isLoading || connectionStatus !== 'Connected') && styles.buttonDisabled)
               }}
-              onClick={handleJoinRoom}
-              disabled={!connected || !joinPlayerName.trim() || !joinRoomCode.trim()}
-              onMouseOver={(e) => {
-                if (connected && joinPlayerName.trim() && joinRoomCode.trim()) {
-                  e.target.style.transform = 'translateY(-2px)'
-                  e.target.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'
+              onMouseEnter={(e) => {
+                if (!e.target.disabled) {
+                  Object.assign(e.target.style, styles.buttonHover);
                 }
               }}
-              onMouseOut={(e) => {
-                e.target.style.transform = 'translateY(0)'
-                e.target.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)'
+              onMouseLeave={(e) => {
+                if (!e.target.disabled) {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
+                }
               }}
             >
-              🎯 Join Game
+              {isLoading ? '🎮 Creating...' : '🎮 Create Game Room'}
+            </button>
+          </div>
+
+          <div 
+            style={styles.card}
+            onMouseEnter={(e) => {
+              Object.assign(e.currentTarget.style, styles.cardHover);
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.3)';
+              e.currentTarget.style.borderColor = '#333333';
+            }}
+          >
+            <div style={styles.cardIcon}>🚪</div>
+            <h3 style={styles.cardTitle}>Join Room</h3>
+            <p style={styles.cardDescription}>
+              Enter a room code to join an existing game with your friends
+            </p>
+            <div style={styles.inputGroup}>
+              <input
+                type="text"
+                placeholder="Enter your name"
+                value={joinName}
+                onChange={(e) => setJoinName(e.target.value)}
+                style={styles.input}
+                onFocus={(e) => Object.assign(e.target.style, styles.inputFocus)}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#333333';
+                  e.target.style.boxShadow = 'none';
+                }}
+                maxLength={20}
+              />
+            </div>
+            <div style={styles.inputGroup}>
+              <input
+                type="text"
+                placeholder="Room code (e.g. ABC123)"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                style={styles.input}
+                onFocus={(e) => Object.assign(e.target.style, styles.inputFocus)}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#333333';
+                  e.target.style.boxShadow = 'none';
+                }}
+                maxLength={6}
+              />
+            </div>
+            <button
+              onClick={handleJoinRoom}
+              disabled={!joinName.trim() || !joinCode.trim() || isLoading || connectionStatus !== 'Connected'}
+              style={{
+                ...styles.button,
+                ...((!joinName.trim() || !joinCode.trim() || isLoading || connectionStatus !== 'Connected') && styles.buttonDisabled)
+              }}
+              onMouseEnter={(e) => {
+                if (!e.target.disabled) {
+                  Object.assign(e.target.style, styles.buttonHover);
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!e.target.disabled) {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
+                }
+              }}
+            >
+              {isLoading ? '🚪 Joining...' : '🚪 Join Game'}
             </button>
           </div>
         </div>
 
-        {/* Game Modes */}
-        <div style={styles.gameModesCard}>
-          <h2 style={styles.gameModesTitle}>Game Modes</h2>
-          <div style={styles.gameModesGrid}>
-            <div style={styles.gameModeItem}>
-              <div style={styles.gameModeNumber}>1v1</div>
-              <div style={styles.gameModeDescription}>Intense duels</div>
-            </div>
-            <div style={styles.gameModeItem}>
-              <div style={styles.gameModeNumber}>2v2</div>
-              <div style={styles.gameModeDescription}>Couple's therapy</div>
-            </div>
-            <div style={styles.gameModeItem}>
-              <div style={styles.gameModeNumber}>3v3</div>
-              <div style={styles.gameModeDescription}>Squad goals</div>
-            </div>
-            <div style={styles.gameModeItem}>
-              <div style={styles.gameModeNumber}>4v4</div>
-              <div style={styles.gameModeDescription}>Crew battles</div>
-            </div>
-            <div style={styles.gameModeItem}>
-              <div style={styles.gameModeNumber}>5v5</div>
-              <div style={styles.gameModeDescription}>Army warfare</div>
-            </div>
-            <div style={styles.gameModeItem}>
-              <div style={styles.gameModeNumber}>FFA</div>
-              <div style={styles.gameModeDescription}>Pure chaos</div>
-            </div>
+        <div style={styles.gameModes}>
+          <h3 style={styles.gameModesTitle}>Game Modes</h3>
+          <div style={styles.modesList}>
+            <span style={styles.mode}>1v1</span>
+            <span style={styles.mode}>2v2</span>
+            <span style={styles.mode}>3v3</span>
+            <span style={styles.mode}>4v4</span>
+            <span style={styles.mode}>5v5</span>
+            <span style={styles.mode}>FFA</span>
           </div>
-        </div>
-
-        {/* Connection Status */}
-        <div style={styles.connectionStatus}>
-          <span style={styles.statusBadge}>
-            {connected ? '✅ Connected' : '❌ Disconnected'}
-          </span>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 0.5; transform: scale(1); }
-          50% { opacity: 0.8; transform: scale(1.05); }
-        }
-        
-        input::placeholder {
-          color: rgba(255,255,255,0.5);
-        }
-        
-        input:focus {
-          border-color: rgba(255,255,255,0.4);
-          box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
-        }
-      `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default LandingPage
-
+export default LandingPage;
