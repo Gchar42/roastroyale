@@ -3,181 +3,181 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
-import { Separator } from '@/components/ui/separator'
 import { 
-  Clock, Trophy, Zap, Target, Users, Crown, 
-  CheckCircle, XCircle, Star, Flame, MessageCircle,
-  RotateCcw, ArrowRight, Volume2
+  Users, 
+  Clock, 
+  Zap, 
+  Trophy, 
+  ArrowLeft, 
+  Home,
+  CheckCircle,
+  Circle,
+  Star,
+  Target
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import socketService from '@/services/socket'
 
-const GamePlay = ({ gameState, updateGameState }) => {
-  const { roomCode } = useParams()
+const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, onNextRound }) => {
   const navigate = useNavigate()
-  
-  // Game state
-  const [currentRound, setCurrentRound] = useState(1)
-  const [gamePhase, setGamePhase] = useState('question') // question, prediction, reveal, results
+  const { roomCode } = useParams()
+  const [selectedAnswer, setSelectedAnswer] = useState(null)
+  const [hasSubmitted, setHasSubmitted] = useState(false)
   const [timeLeft, setTimeLeft] = useState(30)
-  const [teamAnswers, setTeamAnswers] = useState({})
-  const [revealedAnswers, setRevealedAnswers] = useState([])
-  const [scores, setScores] = useState({ team1: 0, team2: 0 })
-  const [usedPowerUps, setUsedPowerUps] = useState([])
-  
-  // Mock current question - in real app this would come from backend
-  const [currentQuestion] = useState({
-    id: 1,
-    type: 'family_feud',
-    category: 'Gaming Culture',
-    question: "What's the most annoying thing someone can do in a Discord voice chat?",
-    answers: [
-      { text: "Breathing loudly", points: 40, rank: 1 },
-      { text: "Echo/feedback", points: 30, rank: 2 },
-      { text: "Music playing", points: 25, rank: 3 },
-      { text: "Eating sounds", points: 20, rank: 4 },
-      { text: "Background noise", points: 15, rank: 5 },
-      { text: "Not muting", points: 10, rank: 6 },
-      { text: "Keyboard clicking", points: 5, rank: 7 },
-      { text: "Bad microphone", points: 3, rank: 8 }
-    ]
-  })
+  const [showResults, setShowResults] = useState(false)
 
-  // Mock teams
-  const teams = {
-    team1: { 
-      name: 'Team Chaos', 
-      color: 'bg-red-500',
-      players: [
-        { id: 1, name: gameState.playerName || 'You', avatar: '👑' },
-        { id: 2, name: 'Alex_Gaming', avatar: '🎮' }
-      ]
-    },
-    team2: { 
-      name: 'Team Mayhem', 
-      color: 'bg-blue-500',
-      players: [
-        { id: 3, name: 'MemeLord420', avatar: '😂' },
-        { id: 4, name: 'StreamQueen', avatar: '👸' }
-      ]
-    }
-  }
-
-  // Power-ups available
-  const powerUps = [
-    { id: 'double', name: 'Double Down', icon: '2️⃣', description: 'Double points for next answer' },
-    { id: 'spy', name: 'Spy Mode', icon: '👁️', description: 'See other team\'s discussion' },
-    { id: 'steal', name: 'Steal', icon: '💰', description: 'Steal points if they\'re wrong' },
-    { id: 'chaos', name: 'Chaos Card', icon: '🎲', description: 'Random effect' }
-  ]
+  const gameData = gameState.gameData || {}
+  const currentQuestion = gameData.current_question || {}
+  const currentRound = gameData.current_round || 1
+  const totalRounds = gameData.total_rounds || 5
+  const players = gameData.players || []
+  const scores = gameData.scores || {}
+  const currentSocketId = socketService.socket?.id
+  const isHost = players.find(p => p.sid === currentSocketId)?.is_host || false
 
   // Timer effect
   useEffect(() => {
-    if (timeLeft > 0 && gamePhase === 'prediction') {
+    if (timeLeft > 0 && !hasSubmitted && !showResults) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
       return () => clearTimeout(timer)
-    } else if (timeLeft === 0 && gamePhase === 'prediction') {
-      setGamePhase('reveal')
+    } else if (timeLeft === 0 && !hasSubmitted) {
+      // Auto-submit when time runs out
+      handleSubmitAnswer(null)
     }
-  }, [timeLeft, gamePhase])
+  }, [timeLeft, hasSubmitted, showResults])
 
-  const submitAnswer = (teamKey, answer) => {
-    setTeamAnswers(prev => ({ ...prev, [teamKey]: answer }))
-  }
-
-  const revealAnswer = (index) => {
-    setRevealedAnswers(prev => [...prev, index])
-    
-    // Check if teams got this answer and award points
-    const answer = currentQuestion.answers[index]
-    Object.entries(teamAnswers).forEach(([teamKey, teamAnswer]) => {
-      if (teamAnswer.toLowerCase().includes(answer.text.toLowerCase()) || 
-          answer.text.toLowerCase().includes(teamAnswer.toLowerCase())) {
-        setScores(prev => ({
-          ...prev,
-          [teamKey]: prev[teamKey] + answer.points
-        }))
-      }
-    })
-  }
-
-  const nextRound = () => {
-    if (currentRound < 5) {
-      setCurrentRound(prev => prev + 1)
-      setGamePhase('question')
+  // Reset state when new question arrives
+  useEffect(() => {
+    if (currentQuestion.id) {
+      setSelectedAnswer(null)
+      setHasSubmitted(false)
       setTimeLeft(30)
-      setTeamAnswers({})
-      setRevealedAnswers([])
-    } else {
-      setGamePhase('final_results')
+      setShowResults(false)
+    }
+  }, [currentQuestion.id])
+
+  // Show results when all players have answered
+  useEffect(() => {
+    if (gameData.show_results) {
+      setShowResults(true)
+    }
+  }, [gameData.show_results])
+
+  const handleBackToHome = () => {
+    try {
+      if (socketService.socket && roomCode) {
+        socketService.socket.emit('leave_room', { room_code: roomCode })
+      }
+      navigate('/', { replace: true })
+      setTimeout(() => {
+        if (window.location.pathname !== '/') {
+          window.location.href = '/'
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Error leaving game:', error)
+      window.location.href = '/'
     }
   }
 
-  const startPredictionPhase = () => {
-    setGamePhase('prediction')
-    setTimeLeft(30)
+  const handleAnswerSelect = (answerIndex) => {
+    if (hasSubmitted || showResults) return
+    setSelectedAnswer(answerIndex)
   }
 
-  const usePowerUp = (powerUpId, teamKey) => {
-    setUsedPowerUps(prev => [...prev, { powerUpId, teamKey, round: currentRound }])
-    // Power-up effects would be implemented here
-  }
-
-  const getTeamKey = () => {
-    const playerTeam = Object.entries(teams).find(([key, team]) => 
-      team.players.some(p => p.name === gameState.playerName)
-    )
-    return playerTeam ? playerTeam[0] : 'team1'
-  }
-
-  const playerTeamKey = getTeamKey()
-  const playerTeam = teams[playerTeamKey]
-
-  if (gamePhase === 'final_results') {
-    const winner = scores.team1 > scores.team2 ? teams.team1 : teams.team2
-    const winnerKey = scores.team1 > scores.team2 ? 'team1' : 'team2'
+  const handleSubmitAnswer = (answer = selectedAnswer) => {
+    if (hasSubmitted) return
     
+    setHasSubmitted(true)
+    const answerData = {
+      question_id: currentQuestion.id,
+      answer_index: answer,
+      answer_text: answer !== null ? currentQuestion.options[answer] : 'No answer'
+    }
+    
+    console.log('Submitting answer:', answerData)
+    onSubmitAnswer(answerData)
+  }
+
+  const handleNextRound = () => {
+    if (!isHost) return
+    onNextRound()
+  }
+
+  const handleUseChaosCard = (cardType) => {
+    onUseChaosCard(cardType)
+  }
+
+  // Sample multiple choice questions if none provided
+  const sampleQuestion = {
+    id: 'sample_1',
+    question: "What's the most annoying thing someone can do in a Discord voice chat?",
+    category: "Gaming Culture",
+    options: [
+      "Leave their mic on while eating chips",
+      "Play music without asking",
+      "Have echo because they don't use headphones",
+      "Breathe heavily into the mic",
+      "Talk to people in their room",
+      "Join and immediately go AFK",
+      "Use voice changer constantly",
+      "Interrupt everyone mid-sentence"
+    ]
+  }
+
+  const displayQuestion = currentQuestion.question ? currentQuestion : sampleQuestion
+  const progress = (currentRound / totalRounds) * 100
+
+  if (gameState.gameEnded) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        </div>
+
         <motion.div 
-          className="text-center space-y-8 max-w-2xl"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-4xl w-full text-center space-y-8"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
         >
-          <div className="space-y-4">
-            <Trophy className="w-24 h-24 text-yellow-400 mx-auto" />
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-              {winner.name} Wins!
-            </h1>
-            <p className="text-2xl text-white">
-              Final Score: {scores[winnerKey]} - {scores[winnerKey === 'team1' ? 'team2' : 'team1']}
-            </p>
-          </div>
+          <h1 className="text-6xl font-bold bg-gradient-to-r from-pink-400 to-purple-600 bg-clip-text text-transparent">
+            🏆 Game Over! 🏆
+          </h1>
           
-          <div className="grid grid-cols-2 gap-4">
-            {Object.entries(teams).map(([key, team]) => (
-              <Card key={key} className={`bg-white/10 backdrop-blur-md border-white/20 text-white ${key === winnerKey ? 'ring-2 ring-yellow-400' : ''}`}>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    {key === winnerKey && <Crown className="w-6 h-6 text-yellow-400" />}
-                    <span>{team.name}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-center">{scores[key]}</div>
-                  <div className="text-sm text-white/70 text-center">points</div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          
+          <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-white text-2xl">Final Scores</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {Object.entries(scores).map(([playerId, score], index) => {
+                  const player = players.find(p => p.sid === playerId)
+                  return (
+                    <div key={playerId} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">
+                          {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🎮'}
+                        </span>
+                        <span className="text-white font-medium">{player?.name || 'Unknown'}</span>
+                      </div>
+                      <span className="text-white font-bold text-xl">{score}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
           <Button
-            onClick={() => navigate('/')}
+            onClick={handleBackToHome}
             size="lg"
-            className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold px-8 py-4"
+            className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold py-4 px-8 text-lg"
           >
-            Play Again
+            <Home className="w-5 h-5 mr-2" />
+            Back to Home
           </Button>
         </motion.div>
       </div>
@@ -185,278 +185,272 @@ const GamePlay = ({ gameState, updateGameState }) => {
   }
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header with scores and round info */}
-        <motion.div 
-          className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0"
-          initial={{ opacity: 0, y: -30 }}
-          animate={{ opacity: 1, y: 0 }}
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      </div>
+
+      {/* Back Button */}
+      <motion.div 
+        className="absolute top-4 left-4 z-10"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleBackToHome}
+          className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm"
         >
-          <div className="flex items-center space-x-4">
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30 px-4 py-2">
-              Round {currentRound}/5
-            </Badge>
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30 px-4 py-2">
-              {currentQuestion.category}
-            </Badge>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Leave Game
+        </Button>
+      </motion.div>
+
+      {/* Game Info */}
+      <motion.div 
+        className="absolute top-4 right-4 z-10 flex gap-2"
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+          Round {currentRound}/{totalRounds}
+        </Badge>
+        <Badge className={`${timeLeft > 10 ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30'}`}>
+          <Clock className="w-4 h-4 mr-1" />
+          {timeLeft}s
+        </Badge>
+      </motion.div>
+
+      <div className="max-w-6xl w-full space-y-8">
+        {/* Progress Bar */}
+        <motion.div 
+          className="space-y-2"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="flex justify-between text-white/70 text-sm">
+            <span>Game Progress</span>
+            <span>{Math.round(progress)}%</span>
           </div>
-          
-          <div className="flex items-center space-x-6">
-            {Object.entries(teams).map(([key, team]) => (
-              <div key={key} className="flex items-center space-x-2">
-                <div className={`w-4 h-4 rounded-full ${team.color}`} />
-                <span className="text-white font-medium">{team.name}</span>
-                <span className="text-2xl font-bold text-white">{scores[key]}</span>
-              </div>
-            ))}
-          </div>
+          <Progress value={progress} className="h-2 bg-white/10" />
         </motion.div>
 
-        {/* Main game area */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Question and answers */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Question card */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
+        {/* Question Card */}
+        <motion.div 
+          className="space-y-6"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
+            <CardHeader className="text-center">
+              <Badge variant="secondary" className="w-fit mx-auto mb-4 bg-purple-500/20 text-purple-300 border-purple-500/30">
+                {displayQuestion.category || 'General'}
+              </Badge>
+              <CardTitle className="text-white text-2xl md:text-3xl font-bold leading-tight">
+                {displayQuestion.question}
+              </CardTitle>
+              <CardDescription className="text-white/70 text-lg">
+                {showResults ? 'Results are in!' : hasSubmitted ? 'Waiting for other players...' : 'Choose your answer!'}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          {/* Multiple Choice Options */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <AnimatePresence>
+              {displayQuestion.options?.map((option, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  whileHover={{ scale: hasSubmitted || showResults ? 1 : 1.02 }}
+                  whileTap={{ scale: hasSubmitted || showResults ? 1 : 0.98 }}
+                >
+                  <Button
+                    variant="outline"
+                    onClick={() => handleAnswerSelect(index)}
+                    disabled={hasSubmitted || showResults}
+                    className={`w-full p-6 h-auto text-left justify-start transition-all duration-200 ${
+                      selectedAnswer === index
+                        ? 'bg-purple-500/20 border-purple-400 text-white'
+                        : 'bg-white/5 border-white/20 text-white hover:bg-white/10'
+                    } ${
+                      hasSubmitted || showResults ? 'cursor-not-allowed opacity-60' : 'hover:border-purple-400/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 w-full">
+                      <div className="flex-shrink-0">
+                        {selectedAnswer === index ? (
+                          <CheckCircle className="w-5 h-5 text-purple-400" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-white/40" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-base leading-relaxed">
+                          {option}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 text-white/40 font-mono text-sm">
+                        {String.fromCharCode(65 + index)}
+                      </div>
+                    </div>
+                  </Button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {/* Submit Button */}
+          {!hasSubmitted && !showResults && (
+            <motion.div 
+              className="flex justify-center"
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+              transition={{ duration: 0.6, delay: 0.8 }}
             >
-              <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
-                <CardHeader>
-                  <CardTitle className="text-2xl text-center">
-                    {currentQuestion.question}
-                  </CardTitle>
-                  {gamePhase === 'prediction' && (
-                    <div className="flex items-center justify-center space-x-2">
-                      <Clock className="w-5 h-5 text-yellow-400" />
-                      <span className="text-lg font-bold text-yellow-400">{timeLeft}s</span>
-                      <Progress value={(timeLeft / 30) * 100} className="w-32" />
-                    </div>
-                  )}
-                </CardHeader>
-                
-                {gamePhase === 'question' && (
-                  <CardContent className="text-center">
-                    <p className="text-white/80 mb-6">
-                      Teams will predict the most popular answers from our survey!
-                    </p>
-                    <Button
-                      onClick={startPredictionPhase}
-                      size="lg"
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                    >
-                      <Target className="w-5 h-5 mr-2" />
-                      Start Predictions
-                    </Button>
-                  </CardContent>
-                )}
-              </Card>
-            </motion.div>
-
-            {/* Answers board */}
-            {(gamePhase === 'reveal' || gamePhase === 'results') && (
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
+              <Button
+                onClick={() => handleSubmitAnswer()}
+                disabled={selectedAnswer === null}
+                size="lg"
+                className={`font-bold py-4 px-8 text-lg shadow-lg hover:shadow-xl transition-all duration-300 ${
+                  selectedAnswer !== null
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
+                    : 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
+                }`}
               >
-                <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Star className="w-6 h-6 text-yellow-400" />
-                      <span>Survey Results</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-2">
-                      {currentQuestion.answers.map((answer, index) => (
-                        <motion.div
-                          key={index}
-                          className={`flex items-center justify-between p-3 rounded-lg border ${
-                            revealedAnswers.includes(index) 
-                              ? 'bg-green-500/20 border-green-500/30' 
-                              : 'bg-white/5 border-white/20'
-                          }`}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <Badge variant="outline" className="w-8 h-8 rounded-full flex items-center justify-center">
-                              {answer.rank}
-                            </Badge>
-                            <span className={revealedAnswers.includes(index) ? 'font-medium' : 'text-white/50'}>
-                              {revealedAnswers.includes(index) ? answer.text : '???'}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <span className="font-bold text-yellow-400">
-                              {revealedAnswers.includes(index) ? answer.points : '??'}
-                            </span>
-                            {!revealedAnswers.includes(index) && gamePhase === 'reveal' && (
-                              <Button
-                                size="sm"
-                                onClick={() => revealAnswer(index)}
-                                className="bg-blue-500 hover:bg-blue-600"
-                              >
-                                Reveal
-                              </Button>
-                            )}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                    
-                    {revealedAnswers.length === currentQuestion.answers.length && (
-                      <div className="text-center mt-6">
-                        <Button
-                          onClick={nextRound}
-                          size="lg"
-                          className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
-                        >
-                          <ArrowRight className="w-5 h-5 mr-2" />
-                          {currentRound < 5 ? 'Next Round' : 'Final Results'}
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </div>
-
-          {/* Team panel */}
-          <div className="space-y-6">
-            {/* Your team */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <div className={`w-4 h-4 rounded-full ${playerTeam.color}`} />
-                    <span>{playerTeam.name}</span>
-                    <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30">
-                      Your Team
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {gamePhase === 'prediction' && (
-                    <div className="space-y-3">
-                      <Input
-                        placeholder="Enter your prediction..."
-                        value={teamAnswers[playerTeamKey] || ''}
-                        onChange={(e) => submitAnswer(playerTeamKey, e.target.value)}
-                        className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-                      />
-                      <Button
-                        onClick={() => {/* Submit answer */}}
-                        disabled={!teamAnswers[playerTeamKey]}
-                        className="w-full bg-green-500 hover:bg-green-600"
-                      >
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Submit Answer
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {teamAnswers[playerTeamKey] && (
-                    <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg">
-                      <div className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
-                        <span className="text-sm text-green-400">Your answer:</span>
-                      </div>
-                      <p className="font-medium mt-1">{teamAnswers[playerTeamKey]}</p>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm text-white/80">Team Members</h4>
-                    {playerTeam.players.map(player => (
-                      <div key={player.id} className="flex items-center space-x-2 text-sm">
-                        <span>{player.avatar}</span>
-                        <span>{player.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                <Target className="w-5 h-5 mr-2" />
+                Submit Answer
+              </Button>
             </motion.div>
+          )}
 
-            {/* Power-ups */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 }}
+          {/* Waiting Message */}
+          {hasSubmitted && !showResults && (
+            <motion.div 
+              className="text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6 }}
             >
-              <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Zap className="w-5 h-5 text-yellow-400" />
-                    <span>Chaos Cards</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {powerUps.map(powerUp => (
-                    <Button
-                      key={powerUp.id}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => usePowerUp(powerUp.id, playerTeamKey)}
-                      disabled={usedPowerUps.some(used => used.powerUpId === powerUp.id && used.round === currentRound)}
-                      className="w-full justify-start bg-white/5 border-white/20 text-white hover:bg-white/10"
-                    >
-                      <span className="mr-2">{powerUp.icon}</span>
-                      <div className="text-left">
-                        <div className="font-medium">{powerUp.name}</div>
-                        <div className="text-xs text-white/60">{powerUp.description}</div>
-                      </div>
-                    </Button>
-                  ))}
-                </CardContent>
-              </Card>
+              <div className="text-white/70 text-lg">
+                ⏳ Waiting for other players to answer...
+              </div>
             </motion.div>
+          )}
 
-            {/* Game stats */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.7 }}
+          {/* Results and Next Round */}
+          {showResults && isHost && (
+            <motion.div 
+              className="flex justify-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
             >
-              <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Trophy className="w-5 h-5 text-yellow-400" />
-                    <span>Game Stats</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Round Progress</span>
-                    <span>{currentRound}/5</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Your Score</span>
-                    <span className="font-bold text-green-400">{scores[playerTeamKey]}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Power-ups Used</span>
-                    <span>{usedPowerUps.filter(p => p.teamKey === playerTeamKey).length}</span>
-                  </div>
-                  <Separator className="bg-white/20" />
-                  <div className="text-center text-xs text-white/60">
-                    Room: {roomCode}
-                  </div>
-                </CardContent>
-              </Card>
+              <Button
+                onClick={handleNextRound}
+                size="lg"
+                className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold py-4 px-8 text-lg"
+              >
+                <Star className="w-5 h-5 mr-2" />
+                Next Round
+              </Button>
             </motion.div>
-          </div>
+          )}
+
+          {showResults && !isHost && (
+            <motion.div 
+              className="text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="text-white/70 text-lg">
+                🎮 Waiting for host to start next round...
+              </div>
+            </motion.div>
+          )}
         </div>
+
+        {/* Player Status */}
+        <motion.div 
+          className="grid md:grid-cols-2 gap-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1 }}
+        >
+          <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Players ({players.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {players.map((player) => (
+                  <div key={player.sid} className="flex items-center justify-between p-2 bg-white/5 rounded">
+                    <span className="text-white">{player.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/70">{scores[player.sid] || 0}</span>
+                      {gameData.answered_players?.includes(player.sid) ? (
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-white/40" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Chaos Cards */}
+          <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                Chaos Cards
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleUseChaosCard('double_points')}
+                  className="w-full bg-yellow-500/10 border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/20"
+                >
+                  ⚡ Double Points
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleUseChaosCard('steal_points')}
+                  className="w-full bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20"
+                >
+                  🎯 Steal Points
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleUseChaosCard('extra_time')}
+                  className="w-full bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
+                >
+                  ⏰ Extra Time
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     </div>
   )
