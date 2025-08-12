@@ -1,6 +1,6 @@
-import random
 import string
 import time
+import random  # FIX: Added missing random import
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -77,54 +77,200 @@ class GameManager:
         self.questions = self._load_questions()
         
     def _load_questions(self) -> List[Question]:
-        """Load questions from the content database"""
+        """Load questions from the content database - EXPANDED WITH MULTIPLE CHOICE"""
         questions_data = [
+            # Gaming & Discord Questions
             {
                 "id": 1,
-                "type": "family_feud",
+                "type": "multiple_choice",
                 "category": "Gaming Culture",
                 "question": "What's the most annoying thing someone can do in a Discord voice chat?",
                 "answers": [
-                    {"text": "Breathing loudly", "points": 40, "rank": 1},
-                    {"text": "Echo/feedback", "points": 30, "rank": 2},
-                    {"text": "Music playing", "points": 25, "rank": 3},
-                    {"text": "Eating sounds", "points": 20, "rank": 4},
-                    {"text": "Background noise", "points": 15, "rank": 5},
-                    {"text": "Not muting", "points": 10, "rank": 6},
-                    {"text": "Keyboard clicking", "points": 5, "rank": 7},
-                    {"text": "Bad microphone", "points": 3, "rank": 8}
+                    {"text": "Breathing loudly into the mic", "points": 40, "rank": 1},
+                    {"text": "Echo/feedback from speakers", "points": 35, "rank": 2},
+                    {"text": "Playing music without asking", "points": 30, "rank": 3},
+                    {"text": "Eating loudly", "points": 25, "rank": 4},
+                    {"text": "Background TV/noise", "points": 20, "rank": 5},
+                    {"text": "Never muting when they should", "points": 15, "rank": 6},
+                    {"text": "Mechanical keyboard spam", "points": 10, "rank": 7},
+                    {"text": "Terrible microphone quality", "points": 5, "rank": 8}
                 ]
             },
             {
                 "id": 2,
-                "type": "family_feud",
-                "category": "Friend Dynamics",
-                "question": "What's something friends always argue about when choosing a game to play?",
+                "type": "multiple_choice",
+                "category": "Gaming",
+                "question": "What's the worst thing a teammate can do in an online game?",
                 "answers": [
-                    {"text": "Genre preference", "points": 40, "rank": 1},
-                    {"text": "Difficulty level", "points": 30, "rank": 2},
-                    {"text": "Game length", "points": 25, "rank": 3},
-                    {"text": "Cost/price", "points": 20, "rank": 4},
-                    {"text": "Platform compatibility", "points": 15, "rank": 5},
-                    {"text": "Skill level differences", "points": 10, "rank": 6},
-                    {"text": "Time availability", "points": 5, "rank": 7},
-                    {"text": "Personal preferences", "points": 3, "rank": 8}
+                    {"text": "Rage quit mid-game", "points": 45, "rank": 1},
+                    {"text": "Blame everyone else for losing", "points": 40, "rank": 2},
+                    {"text": "Go AFK without warning", "points": 35, "rank": 3},
+                    {"text": "Steal your kills/loot", "points": 30, "rank": 4},
+                    {"text": "Refuse to communicate", "points": 25, "rank": 5},
+                    {"text": "Play music through voice chat", "points": 20, "rank": 6},
+                    {"text": "Constantly backseat gaming", "points": 15, "rank": 7},
+                    {"text": "Use cheats/hacks", "points": 10, "rank": 8}
                 ]
             },
             {
                 "id": 3,
-                "type": "family_feud",
-                "category": "Trending Now",
-                "question": "If you had to explain the '100 men vs 1 gorilla' meme to your parents, what would you say?",
+                "type": "multiple_choice",
+                "category": "Social Media",
+                "question": "What's the most cringe thing people post on social media?",
                 "answers": [
-                    {"text": "It's just internet humor", "points": 40, "rank": 1},
-                    {"text": "Don't ask, it's weird", "points": 30, "rank": 2},
-                    {"text": "People debate random things", "points": 25, "rank": 3},
-                    {"text": "Gen Z finds it funny", "points": 20, "rank": 4},
-                    {"text": "It's a hypothetical fight", "points": 15, "rank": 5},
-                    {"text": "Makes no sense", "points": 10, "rank": 6},
-                    {"text": "Viral TikTok thing", "points": 5, "rank": 7},
-                    {"text": "Internet being internet", "points": 3, "rank": 8}
+                    {"text": "Gym selfies with motivational quotes", "points": 40, "rank": 1},
+                    {"text": "Vague posts fishing for attention", "points": 35, "rank": 2},
+                    {"text": "Every single meal they eat", "points": 30, "rank": 3},
+                    {"text": "Relationship drama publicly", "points": 25, "rank": 4},
+                    {"text": "Fake deep philosophical quotes", "points": 20, "rank": 5},
+                    {"text": "Humble bragging constantly", "points": 15, "rank": 6},
+                    {"text": "Political rants on everything", "points": 10, "rank": 7},
+                    {"text": "MLM/pyramid scheme posts", "points": 5, "rank": 8}
+                ]
+            },
+            {
+                "id": 4,
+                "type": "multiple_choice",
+                "category": "Streaming",
+                "question": "What makes a Twitch stream instantly unwatchable?",
+                "answers": [
+                    {"text": "Constant begging for donations", "points": 45, "rank": 1},
+                    {"text": "Toxic/raging at everything", "points": 40, "rank": 2},
+                    {"text": "Terrible audio quality", "points": 35, "rank": 3},
+                    {"text": "Ignoring chat completely", "points": 30, "rank": 4},
+                    {"text": "Boring personality/no energy", "points": 25, "rank": 5},
+                    {"text": "Too many ads/interruptions", "points": 20, "rank": 6},
+                    {"text": "Bad at the game they're playing", "points": 15, "rank": 7},
+                    {"text": "Inappropriate content", "points": 10, "rank": 8}
+                ]
+            },
+            {
+                "id": 5,
+                "type": "multiple_choice",
+                "category": "Friend Groups",
+                "question": "What's the most annoying friend in every group chat?",
+                "answers": [
+                    {"text": "The one who never responds but reads everything", "points": 45, "rank": 1},
+                    {"text": "The one who sends 47 messages in a row", "points": 40, "rank": 2},
+                    {"text": "The one who only talks about themselves", "points": 35, "rank": 3},
+                    {"text": "The one who argues about everything", "points": 30, "rank": 4},
+                    {"text": "The one who sends memes at 3 AM", "points": 25, "rank": 5},
+                    {"text": "The one who screenshots private convos", "points": 20, "rank": 6},
+                    {"text": "The one who leaves you on read", "points": 15, "rank": 7},
+                    {"text": "The one who adds random people", "points": 10, "rank": 8}
+                ]
+            },
+            {
+                "id": 6,
+                "type": "multiple_choice",
+                "category": "Dating",
+                "question": "What's the biggest red flag on a dating app profile?",
+                "answers": [
+                    {"text": "Only group photos (can't tell who they are)", "points": 45, "rank": 1},
+                    {"text": "Bio says 'Just ask' or completely empty", "points": 40, "rank": 2},
+                    {"text": "All photos are clearly old/filtered", "points": 35, "rank": 3},
+                    {"text": "Mentions their ex in the bio", "points": 30, "rank": 4},
+                    {"text": "Lists requirements like a job posting", "points": 25, "rank": 5},
+                    {"text": "Only mirror selfies in bathrooms", "points": 20, "rank": 6},
+                    {"text": "Gym photos showing off constantly", "points": 15, "rank": 7},
+                    {"text": "Photos with expensive cars that aren't theirs", "points": 10, "rank": 8}
+                ]
+            },
+            {
+                "id": 7,
+                "type": "multiple_choice",
+                "category": "Work/School",
+                "question": "What's the worst type of coworker/classmate?",
+                "answers": [
+                    {"text": "Takes credit for your work", "points": 50, "rank": 1},
+                    {"text": "Never does their part in group projects", "points": 45, "rank": 2},
+                    {"text": "Constantly complains but never helps", "points": 40, "rank": 3},
+                    {"text": "Micromanages everything you do", "points": 35, "rank": 4},
+                    {"text": "Gossips about everyone", "points": 30, "rank": 5},
+                    {"text": "Always late to meetings/classes", "points": 25, "rank": 6},
+                    {"text": "Eats smelly food at their desk", "points": 20, "rank": 7},
+                    {"text": "Plays music without headphones", "points": 15, "rank": 8}
+                ]
+            },
+            {
+                "id": 8,
+                "type": "multiple_choice",
+                "category": "Internet Culture",
+                "question": "What's the most overused meme format right now?",
+                "answers": [
+                    {"text": "Drake pointing template", "points": 40, "rank": 1},
+                    {"text": "Distracted boyfriend meme", "points": 35, "rank": 2},
+                    {"text": "Woman yelling at cat", "points": 30, "rank": 3},
+                    {"text": "This is fine dog in fire", "points": 25, "rank": 4},
+                    {"text": "Expanding brain meme", "points": 20, "rank": 5},
+                    {"text": "Change my mind template", "points": 15, "rank": 6},
+                    {"text": "Stonks guy", "points": 10, "rank": 7},
+                    {"text": "Surprised Pikachu", "points": 5, "rank": 8}
+                ]
+            },
+            {
+                "id": 9,
+                "type": "multiple_choice",
+                "category": "Food",
+                "question": "What's the most controversial pizza topping?",
+                "answers": [
+                    {"text": "Pineapple (Hawaiian)", "points": 50, "rank": 1},
+                    {"text": "Anchovies", "points": 40, "rank": 2},
+                    {"text": "Olives (black or green)", "points": 30, "rank": 3},
+                    {"text": "Mushrooms", "points": 25, "rank": 4},
+                    {"text": "Bell peppers", "points": 20, "rank": 5},
+                    {"text": "Jalapeños", "points": 15, "rank": 6},
+                    {"text": "Onions", "points": 10, "rank": 7},
+                    {"text": "Extra cheese", "points": 5, "rank": 8}
+                ]
+            },
+            {
+                "id": 10,
+                "type": "multiple_choice",
+                "category": "Technology",
+                "question": "What's the most annoying thing about smartphones?",
+                "answers": [
+                    {"text": "Battery dies at the worst moments", "points": 45, "rank": 1},
+                    {"text": "Constant software updates", "points": 40, "rank": 2},
+                    {"text": "Running out of storage space", "points": 35, "rank": 3},
+                    {"text": "Cracked screen that cuts your finger", "points": 30, "rank": 4},
+                    {"text": "Apps that won't close/keep running", "points": 25, "rank": 5},
+                    {"text": "Autocorrect changing what you meant", "points": 20, "rank": 6},
+                    {"text": "Spam calls and texts", "points": 15, "rank": 7},
+                    {"text": "Slow internet/bad connection", "points": 10, "rank": 8}
+                ]
+            },
+            # Add more categories and questions...
+            {
+                "id": 11,
+                "type": "multiple_choice",
+                "category": "Movies/TV",
+                "question": "What ruins a movie experience the most?",
+                "answers": [
+                    {"text": "People talking during the movie", "points": 50, "rank": 1},
+                    {"text": "Someone spoiling the ending", "points": 45, "rank": 2},
+                    {"text": "Phone screens lighting up constantly", "points": 40, "rank": 3},
+                    {"text": "Loud eating/crunching sounds", "points": 35, "rank": 4},
+                    {"text": "Kids crying or being loud", "points": 30, "rank": 5},
+                    {"text": "Someone kicking your seat", "points": 25, "rank": 6},
+                    {"text": "Terrible audio quality", "points": 20, "rank": 7},
+                    {"text": "Having to pee halfway through", "points": 15, "rank": 8}
+                ]
+            },
+            {
+                "id": 12,
+                "type": "multiple_choice",
+                "category": "Travel",
+                "question": "What's the worst part about flying?",
+                "answers": [
+                    {"text": "Crying babies on long flights", "points": 45, "rank": 1},
+                    {"text": "Person in front reclines into your space", "points": 40, "rank": 2},
+                    {"text": "Middle seat between two strangers", "points": 35, "rank": 3},
+                    {"text": "Delayed/cancelled flights", "points": 30, "rank": 4},
+                    {"text": "Turbulence making you nauseous", "points": 25, "rank": 5},
+                    {"text": "Overpriced airport food", "points": 20, "rank": 6},
+                    {"text": "Security lines taking forever", "points": 15, "rank": 7},
+                    {"text": "Lost luggage", "points": 10, "rank": 8}
                 ]
             }
         ]
@@ -159,7 +305,7 @@ class GameManager:
             current_round=0,
             max_rounds=5,
             game_mode="2v2",
-            max_players=4,
+            max_players=8,
             created_at=time.time(),
             settings={}
         )
@@ -180,18 +326,17 @@ class GameManager:
             return False, "Room is full"
         
         if room.phase != GamePhase.LOBBY:
-            return False, "Game already in progress"
+            return False, "Game already started"
         
-        # Generate avatar for new player
-        avatars = ["🎮", "😂", "👸", "🤖", "🦄", "🔥", "⚡", "🎯"]
-        used_avatars = [p.avatar for p in room.players.values()]
-        available_avatars = [a for a in avatars if a not in used_avatars]
-        avatar = random.choice(available_avatars) if available_avatars else "🎮"
+        # Check if player name is already taken
+        existing_names = [p.name for p in room.players.values()]
+        if player_name in existing_names:
+            return False, "Name already taken"
         
         player = Player(
             sid=player_sid,
             name=player_name,
-            avatar=avatar
+            avatar=random.choice(["🎮", "🎯", "🎲", "🎪", "🎭", "🎨", "🎸", "🎤"])
         )
         
         room.players[player_sid] = player
@@ -266,26 +411,27 @@ class GameManager:
                     player.team = f"team_{i+1}"
     
     def get_room_data(self, room_code: str) -> Optional[Dict]:
-        """Get room data for broadcasting"""
+        """Get room data for frontend"""
         if room_code not in self.rooms:
             return None
         
         room = self.rooms[room_code]
         
         return {
-            "room_code": room_code,
+            "room_code": room.code,
             "phase": room.phase.value,
-            "players": [asdict(p) for p in room.players.values()],
-            "teams": {k: asdict(v) for k, v in room.teams.items()},
+            "players": [asdict(player) for player in room.players.values()],
+            "teams": {k: asdict(team) for k, team in room.teams.items()},
             "current_round": room.current_round,
             "max_rounds": room.max_rounds,
             "game_mode": room.game_mode,
             "max_players": room.max_players,
-            "settings": room.settings
+            "settings": room.settings,
+            "host_sid": room.host_sid
         }
     
     def get_game_data(self, room_code: str) -> Optional[Dict]:
-        """Get complete game data including current question"""
+        """Get game data including current question"""
         room_data = self.get_room_data(room_code)
         if not room_data:
             return None
@@ -305,25 +451,18 @@ class GameManager:
         room = self.rooms[room_code]
         room.current_round += 1
         
-        # Select random question
-        question = random.choice(self.questions)
-        room.current_question = Question(**asdict(question))
-        room.current_question.revealed_answers = []
-        
-        # Reset team answers
-        for team in room.teams.values():
-            team.current_answer = None
+        # Select a random question
+        room.current_question = random.choice(self.questions)
+        room.phase = GamePhase.QUESTION
         
         # Reset player answers
         for player in room.players.values():
             player.current_answer = None
         
-        room.phase = GamePhase.QUESTION
-        
         return True
     
     def submit_answer(self, room_code: str, player_sid: str, answer: str) -> Tuple[bool, str]:
-        """Submit a player's answer"""
+        """Submit a player's answer (now multiple choice selection)"""
         if room_code not in self.rooms:
             return False, "Room not found"
         
@@ -332,98 +471,83 @@ class GameManager:
         if player_sid not in room.players:
             return False, "Player not in room"
         
-        if room.phase != GamePhase.PREDICTION:
-            return False, "Not in prediction phase"
+        if room.phase != GamePhase.QUESTION:
+            return False, "Not in question phase"
         
         player = room.players[player_sid]
         player.current_answer = answer
         
-        # Update team answer (for team-based modes)
-        if player.team and player.team in room.teams:
-            room.teams[player.team].current_answer = answer
-        
-        return True, "Answer submitted"
+        return True, f"{player.name} submitted their answer"
     
     def all_answers_submitted(self, room_code: str) -> bool:
-        """Check if all teams have submitted answers"""
+        """Check if all players have submitted answers"""
         if room_code not in self.rooms:
             return False
         
         room = self.rooms[room_code]
         
-        if room.game_mode == "ffa":
-            # In FFA, check if all players have answered
-            return all(p.current_answer is not None for p in room.players.values())
-        else:
-            # In team mode, check if all teams have answered
-            return all(t.current_answer is not None for t in room.teams.values())
+        for player in room.players.values():
+            if player.current_answer is None:
+                return False
+        
+        return True
     
     def advance_game_state(self, room_code: str) -> Optional[Dict]:
-        """Advance the game to the next state"""
+        """Advance the game to the next phase"""
         if room_code not in self.rooms:
             return None
         
         room = self.rooms[room_code]
         
-        if room.phase == GamePhase.PREDICTION:
+        if room.phase == GamePhase.QUESTION:
             room.phase = GamePhase.REVEAL
         elif room.phase == GamePhase.REVEAL:
             room.phase = GamePhase.ROUND_RESULTS
-        elif room.phase == GamePhase.ROUND_RESULTS:
-            if room.current_round >= room.max_rounds:
-                room.phase = GamePhase.FINAL_RESULTS
-            else:
-                self.start_round(room_code)
         
         return self.get_game_data(room_code)
     
     def reveal_answer(self, room_code: str, host_sid: str, answer_index: int) -> Tuple[bool, Dict]:
-        """Reveal an answer and calculate points"""
+        """Reveal an answer and award points"""
         if room_code not in self.rooms:
-            return False, {"error": "Room not found"}
+            return False, {"message": "Room not found"}
         
         room = self.rooms[room_code]
         
         if room.host_sid != host_sid:
-            return False, {"error": "Only host can reveal answers"}
+            return False, {"message": "Only host can reveal answers"}
         
-        if not room.current_question or answer_index >= len(room.current_question.answers):
-            return False, {"error": "Invalid answer index"}
+        if not room.current_question:
+            return False, {"message": "No current question"}
         
-        if answer_index in room.current_question.revealed_answers:
-            return False, {"error": "Answer already revealed"}
+        if answer_index >= len(room.current_question.answers):
+            return False, {"message": "Invalid answer index"}
         
-        # Reveal the answer
-        room.current_question.revealed_answers.append(answer_index)
+        # Mark answer as revealed
+        if answer_index not in room.current_question.revealed_answers:
+            room.current_question.revealed_answers.append(answer_index)
+        
         revealed_answer = room.current_question.answers[answer_index]
         
-        # Calculate points for teams that got this answer
-        points_awarded = {}
-        
-        for team_key, team in room.teams.items():
-            if team.current_answer and self._check_answer_match(team.current_answer, revealed_answer["text"]):
-                team.score += revealed_answer["points"]
-                points_awarded[team_key] = revealed_answer["points"]
+        # Award points to players who guessed this answer
+        for player in room.players.values():
+            if player.current_answer == revealed_answer["text"]:
+                player.score += revealed_answer["points"]
+                
+                # Award points to team as well
+                if player.team and player.team in room.teams:
+                    room.teams[player.team].score += revealed_answer["points"]
         
         return True, {
-            "answer_index": answer_index,
             "answer": revealed_answer,
-            "points_awarded": points_awarded,
-            "revealed_answers": room.current_question.revealed_answers
+            "answer_index": answer_index,
+            "players_who_guessed": [
+                p.name for p in room.players.values() 
+                if p.current_answer == revealed_answer["text"]
+            ]
         }
     
-    def _check_answer_match(self, submitted_answer: str, correct_answer: str) -> bool:
-        """Check if submitted answer matches the correct answer"""
-        submitted = submitted_answer.lower().strip()
-        correct = correct_answer.lower().strip()
-        
-        # Simple matching - could be improved with fuzzy matching
-        return (submitted in correct or 
-                correct in submitted or 
-                submitted == correct)
-    
     def use_power_up(self, room_code: str, player_sid: str, power_up_id: str) -> Tuple[bool, str]:
-        """Use a power-up"""
+        """Use a power-up/chaos card"""
         if room_code not in self.rooms:
             return False, "Room not found"
         
@@ -435,7 +559,7 @@ class GameManager:
         player = room.players[player_sid]
         
         if power_up_id in player.power_ups_used:
-            return False, "Power-up already used this round"
+            return False, "Power-up already used"
         
         # Apply power-up effect
         effect = self._apply_power_up_effect(room, player, power_up_id)
@@ -446,34 +570,29 @@ class GameManager:
     def _apply_power_up_effect(self, room: GameRoom, player: Player, power_up_id: str) -> str:
         """Apply the effect of a power-up"""
         effects = {
-            "double_down": "Next answer will be worth double points!",
-            "spy_mode": "You can now see the other team's discussion!",
-            "steal": "You'll steal points if the other team gets it wrong!",
-            "chaos_card": "Random chaos effect activated!",
-            "time_freeze": "Extra 30 seconds added to the timer!",
-            "meme_bomb": "A wild meme has appeared in the question!"
+            "double_down": f"{player.name} doubled their points for this round!",
+            "spy_mode": f"{player.name} can see other team's discussion!",
+            "steal": f"{player.name} can steal points on wrong answers!",
+            "chaos_card": f"{player.name} triggered a chaos event!"
         }
         
-        return effects.get(power_up_id, "Power-up activated!")
+        return effects.get(power_up_id, "Unknown power-up used")
     
     def next_round(self, room_code: str, host_sid: str) -> Tuple[bool, Dict]:
-        """Start the next round"""
+        """Move to the next round"""
         if room_code not in self.rooms:
-            return False, {"error": "Room not found"}
+            return False, {"message": "Room not found"}
         
         room = self.rooms[room_code]
         
         if room.host_sid != host_sid:
-            return False, {"error": "Only host can advance rounds"}
+            return False, {"message": "Only host can advance rounds"}
         
         if room.current_round >= room.max_rounds:
             room.phase = GamePhase.FINAL_RESULTS
             return True, self.get_game_data(room_code)
         
-        # Reset for next round
-        for player in room.players.values():
-            player.power_ups_used = []
-        
+        # Start next round
         self.start_round(room_code)
         
         return True, self.get_game_data(room_code)
@@ -490,20 +609,31 @@ class GameManager:
                 if player_sid in room.players:
                     del room.players[player_sid]
                 
-                # Remove from teams
-                for team in room.teams.values():
-                    if player_sid in team.players:
-                        team.players.remove(player_sid)
-                
-                # If host disconnected, assign new host
+                # If host disconnected, make someone else host
                 if room.host_sid == player_sid and room.players:
-                    new_host_sid = next(iter(room.players.keys()))
+                    new_host_sid = next(iter(room.players))
                     room.host_sid = new_host_sid
                     room.players[new_host_sid].is_host = True
                 
-                # If room is empty, delete it
+                # If no players left, delete room
                 if not room.players:
                     del self.rooms[room_code]
             
             del self.player_to_room[player_sid]
+    
+    def get_total_players(self) -> int:
+        """Get total number of players across all rooms"""
+        return sum(len(room.players) for room in self.rooms.values())
+    
+    def get_sample_questions(self) -> List[Dict]:
+        """Get sample questions for API"""
+        return [asdict(q) for q in self.questions[:5]]
+    
+    def get_game_stats(self) -> Dict:
+        """Get game statistics"""
+        return {
+            "total_rooms": len(self.rooms),
+            "total_players": self.get_total_players(),
+            "total_questions": len(self.questions)
+        }
 
