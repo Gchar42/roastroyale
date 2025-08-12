@@ -1,162 +1,213 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
-import { Copy, Users, Settings, Play, Crown, UserPlus, Share2, Gamepad2 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { 
+  Users, 
+  Settings, 
+  Play, 
+  Copy, 
+  Check, 
+  Crown, 
+  ArrowLeft, 
+  Home,
+  Gamepad2,
+  Zap,
+  MessageCircle,
+  TrendingUp,
+  Video
+} from 'lucide-react'
+import { motion } from 'framer-motion'
 
-const GameLobby = ({ gameState, updateGameState }) => {
-  const { roomCode } = useParams()
+const GameLobby = ({ gameState, onStartGame, onUpdateSettings, socket }) => {
   const navigate = useNavigate()
+  const { roomCode } = useParams()
+  const [copied, setCopied] = useState(false)
   const [gameMode, setGameMode] = useState('2v2')
   const [maxPlayers, setMaxPlayers] = useState(4)
-  const [copied, setCopied] = useState(false)
-  
-  // Mock players for demo - in real app this would come from WebSocket
-  const [players, setPlayers] = useState([
-    { id: 1, name: gameState.playerName || 'You', isHost: true, avatar: '👑' },
-    { id: 2, name: 'Alex_Gaming', isHost: false, avatar: '🎮' },
-    { id: 3, name: 'MemeLord420', isHost: false, avatar: '😂' },
-  ])
+  const [settings, setSettings] = useState({
+    chaosCards: true,
+    roastMode: true,
+    viralClips: true,
+    trendingTopics: true
+  })
 
-  const gameModes = [
-    { value: '1v1', label: '1v1 Duel', players: 2, description: 'Intense head-to-head' },
-    { value: '2v2', label: '2v2 Teams', players: 4, description: 'Perfect for couples' },
-    { value: '3v3', label: '3v3 Squad', players: 6, description: 'Balanced strategy' },
-    { value: '4v4', label: '4v4 Crew', players: 8, description: 'Large group fun' },
-    { value: '5v5', label: '5v5 Army', players: 10, description: 'Maximum chaos' },
-    { value: 'ffa', label: 'Free For All', players: 8, description: 'Every player for themselves' }
-  ]
+  const isHost = gameState.roomData?.players?.find(p => p.sid === socket?.id)?.is_host
+  const currentPlayers = gameState.roomData?.players?.length || 0
+  const roomCodeDisplay = roomCode || gameState.roomCode
 
-  const copyRoomCode = () => {
-    navigator.clipboard.writeText(roomCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  useEffect(() => {
+    if (gameState.gameStarted) {
+      navigate(`/game/${roomCodeDisplay}`)
+    }
+  }, [gameState.gameStarted, roomCodeDisplay, navigate])
 
-  const shareRoom = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: 'Join my Roast Royale game!',
-        text: `Room code: ${roomCode}`,
-        url: window.location.href
-      })
-    } else {
-      copyRoomCode()
+  const copyRoomCode = async () => {
+    try {
+      await navigator.clipboard.writeText(roomCodeDisplay)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy room code:', err)
     }
   }
 
-  const handleGameModeChange = (mode) => {
-    setGameMode(mode)
-    const selectedMode = gameModes.find(m => m.value === mode)
-    setMaxPlayers(selectedMode.players)
+  const handleStartGame = () => {
+    const gameSettings = {
+      game_mode: gameMode,
+      max_players: maxPlayers,
+      ...settings
+    }
+    onStartGame(gameSettings)
   }
 
-  const startGame = () => {
-    updateGameState({
-      gameMode,
-      maxPlayers,
-      players,
-      gamePhase: 'teams'
-    })
-    navigate(`/teams/${roomCode}`)
+  const handleBackToHome = () => {
+    // Disconnect from current room and go back to home
+    if (socket) {
+      socket.disconnect()
+    }
+    navigate('/')
+    window.location.reload()
   }
 
-  const isHost = players.find(p => p.name === gameState.playerName)?.isHost
+  const handleSettingChange = (key, value) => {
+    const newSettings = { ...settings, [key]: value }
+    setSettings(newSettings)
+    if (onUpdateSettings) {
+      onUpdateSettings(newSettings)
+    }
+  }
+
+  const gameModeOptions = [
+    { value: '1v1', label: '1v1 Teams', description: 'Intense duels', maxPlayers: 2 },
+    { value: '2v2', label: '2v2 Teams', description: 'Perfect for couples', maxPlayers: 4 },
+    { value: '3v3', label: '3v3 Teams', description: 'Squad goals', maxPlayers: 6 },
+    { value: '4v4', label: '4v4 Teams', description: 'Crew battles', maxPlayers: 8 },
+    { value: '5v5', label: '5v5 Teams', description: 'Army warfare', maxPlayers: 10 },
+    { value: 'ffa', label: 'Free For All', description: 'Pure chaos', maxPlayers: 8 }
+  ]
+
+  const selectedGameMode = gameModeOptions.find(mode => mode.value === gameMode)
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="max-w-4xl w-full space-y-6">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
+      {/* Navigation */}
+      <motion.div 
+        className="absolute top-4 left-4 z-10"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleBackToHome}
+          className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Leave Game
+        </Button>
+      </motion.div>
+
+      {/* Connection Status */}
+      <motion.div 
+        className="absolute top-4 right-4 z-10"
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Badge 
+          variant={gameState.connected ? "default" : "destructive"}
+          className={gameState.connected ? "bg-green-500 text-white" : "bg-red-500 text-white"}
+        >
+          {gameState.connected ? "Connected ✓" : "Disconnected ✗"}
+        </Badge>
+      </motion.div>
+
+      <div className="max-w-6xl w-full space-y-8">
         {/* Header */}
         <motion.div 
           className="text-center space-y-4"
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
         >
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-pink-400 to-purple-600 bg-clip-text text-transparent">
             Game Lobby
           </h1>
           
-          <div className="flex items-center justify-center space-x-4">
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
-              <CardContent className="flex items-center space-x-2 p-4">
+          {/* Room Code Display */}
+          <div className="flex items-center justify-center gap-3">
+            <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
+              <CardContent className="p-4 flex items-center gap-3">
                 <span className="text-white/70">Room Code:</span>
-                <span className="text-2xl font-mono font-bold text-white">{roomCode}</span>
+                <span className="text-2xl font-bold text-white font-mono tracking-wider">
+                  {roomCodeDisplay}
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={copyRoomCode}
                   className="text-white hover:bg-white/20"
                 >
-                  {copied ? '✓' : <Copy className="w-4 h-4" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={shareRoom}
-                  className="text-white hover:bg-white/20"
-                >
-                  <Share2 className="w-4 h-4" />
+                  {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
                 </Button>
               </CardContent>
             </Card>
           </div>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Players List */}
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Players Section */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
+            <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="w-6 h-6 text-blue-400" />
-                  <span>Players ({players.length}/{maxPlayers})</span>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-400" />
+                  Players ({currentPlayers}/{maxPlayers})
                 </CardTitle>
                 <CardDescription className="text-white/70">
                   Waiting for more players to join...
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <AnimatePresence>
-                  {players.map((player, index) => (
-                    <motion.div
-                      key={player.id}
-                      className="flex items-center space-x-3 p-3 bg-white/10 rounded-lg"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <span className="text-2xl">{player.avatar}</span>
-                      <span className="flex-1 font-medium">{player.name}</span>
-                      {player.isHost && (
-                        <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                          <Crown className="w-3 h-3 mr-1" />
-                          Host
-                        </Badge>
-                      )}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                
-                {players.length < maxPlayers && (
+                {gameState.roomData?.players?.map((player, index) => (
                   <motion.div
-                    className="flex items-center space-x-3 p-3 bg-white/5 rounded-lg border-2 border-dashed border-white/20"
-                    animate={{ opacity: [0.5, 1, 0.5] }}
-                    transition={{ duration: 2, repeat: Infinity }}
+                    key={player.sid}
+                    className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
                   >
-                    <UserPlus className="w-6 h-6 text-white/50" />
-                    <span className="text-white/50">Waiting for players...</span>
+                    <span className="text-2xl">{player.avatar}</span>
+                    <span className="text-white font-medium flex-1">{player.name}</span>
+                    {player.is_host && (
+                      <Badge className="bg-yellow-500 text-black">
+                        <Crown className="w-3 h-3 mr-1" />
+                        Host
+                      </Badge>
+                    )}
                   </motion.div>
-                )}
+                ))}
+                
+                {/* Empty slots */}
+                {Array.from({ length: maxPlayers - currentPlayers }).map((_, index) => (
+                  <div
+                    key={`empty-${index}`}
+                    className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10 border-dashed opacity-50"
+                  >
+                    <span className="text-2xl">👤</span>
+                    <span className="text-white/50 font-medium">Waiting for players...</span>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </motion.div>
@@ -165,78 +216,122 @@ const GameLobby = ({ gameState, updateGameState }) => {
           <motion.div
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
           >
-            <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white">
+            <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Settings className="w-6 h-6 text-green-400" />
-                  <span>Game Settings</span>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-purple-400" />
+                  Game Settings
                 </CardTitle>
                 <CardDescription className="text-white/70">
-                  {isHost ? 'Configure the game mode' : 'Host is configuring the game'}
+                  Configure the game mode
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-white/80">Game Mode</label>
+              <CardContent className="space-y-6">
+                {/* Game Mode Selection */}
+                <div className="space-y-3">
+                  <Label className="text-white font-medium">Game Mode</Label>
                   <Select 
                     value={gameMode} 
-                    onValueChange={handleGameModeChange}
+                    onValueChange={(value) => {
+                      setGameMode(value)
+                      const mode = gameModeOptions.find(m => m.value === value)
+                      if (mode) {
+                        setMaxPlayers(mode.maxPlayers)
+                      }
+                    }}
                     disabled={!isHost}
                   >
-                    <SelectTrigger className="bg-white/20 border-white/30 text-white">
+                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-gray-900 border-gray-700">
-                      {gameModes.map((mode) => (
-                        <SelectItem key={mode.value} value={mode.value} className="text-white hover:bg-gray-800">
-                          <div>
-                            <div className="font-medium">{mode.label}</div>
-                            <div className="text-xs text-gray-400">{mode.description}</div>
+                    <SelectContent>
+                      {gameModeOptions.map((mode) => (
+                        <SelectItem key={mode.value} value={mode.value}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{mode.label}</span>
+                            <span className="text-sm text-muted-foreground">{mode.description}</span>
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  
+                  {selectedGameMode && (
+                    <div className="text-sm text-white/70 bg-white/5 p-3 rounded-lg">
+                      <div className="flex justify-between">
+                        <span>Max Players:</span>
+                        <span className="font-medium text-white">{selectedGameMode.maxPlayers}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Current Players:</span>
+                        <span className={`font-medium ${currentPlayers >= 2 ? 'text-green-400' : 'text-yellow-400'}`}>
+                          {currentPlayers}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Ready to Start:</span>
+                        <span className={`font-medium ${currentPlayers >= 2 ? 'text-green-400' : 'text-red-400'}`}>
+                          {currentPlayers >= 2 ? 'Yes' : 'No'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <Separator className="bg-white/20" />
+                {/* Game Features */}
+                <div className="space-y-4">
+                  <Label className="text-white font-medium">Game Features</Label>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-yellow-400" />
+                        <span className="text-white text-sm">Chaos Cards</span>
+                      </div>
+                      <Switch
+                        checked={settings.chaosCards}
+                        onCheckedChange={(checked) => handleSettingChange('chaosCards', checked)}
+                        disabled={!isHost}
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-white/80">Max Players</span>
-                    <span className="text-white font-medium">{maxPlayers}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-white/80">Current Players</span>
-                    <span className="text-white font-medium">{players.length}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-white/80">Ready to Start</span>
-                    <span className={`font-medium ${players.length >= 2 ? 'text-green-400' : 'text-red-400'}`}>
-                      {players.length >= 2 ? 'Yes' : 'Need more players'}
-                    </span>
-                  </div>
-                </div>
+                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-pink-400" />
+                        <span className="text-white text-sm">Roast Mode</span>
+                      </div>
+                      <Switch
+                        checked={settings.roastMode}
+                        onCheckedChange={(checked) => handleSettingChange('roastMode', checked)}
+                        disabled={!isHost}
+                      />
+                    </div>
 
-                <Separator className="bg-white/20" />
+                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Video className="w-4 h-4 text-green-400" />
+                        <span className="text-white text-sm">Viral Clips</span>
+                      </div>
+                      <Switch
+                        checked={settings.viralClips}
+                        onCheckedChange={(checked) => handleSettingChange('viralClips', checked)}
+                        disabled={!isHost}
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium text-white">Game Features</h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <Badge variant="outline" className="border-green-500/30 text-green-400">
-                      Chaos Cards ✨
-                    </Badge>
-                    <Badge variant="outline" className="border-blue-500/30 text-blue-400">
-                      Roast Mode 🔥
-                    </Badge>
-                    <Badge variant="outline" className="border-purple-500/30 text-purple-400">
-                      Viral Clips 📹
-                    </Badge>
-                    <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
-                      Trending Topics 📈
-                    </Badge>
+                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-blue-400" />
+                        <span className="text-white text-sm">Trending Topics</span>
+                      </div>
+                      <Switch
+                        checked={settings.trendingTopics}
+                        onCheckedChange={(checked) => handleSettingChange('trendingTopics', checked)}
+                        disabled={!isHost}
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -245,38 +340,45 @@ const GameLobby = ({ gameState, updateGameState }) => {
         </div>
 
         {/* Start Game Button */}
-        {isHost && (
-          <motion.div 
-            className="text-center"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+        >
+          <Button
+            onClick={handleStartGame}
+            disabled={!isHost || currentPlayers < 2}
+            size="lg"
+            className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-bold px-8 py-4 text-lg"
           >
-            <Button
-              onClick={startGame}
-              disabled={players.length < 2}
-              size="lg"
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold px-8 py-4 text-lg"
-            >
-              <Play className="w-6 h-6 mr-2" />
-              Start Game
-            </Button>
-            {players.length < 2 && (
-              <p className="text-white/60 text-sm mt-2">
-                Need at least 2 players to start
-              </p>
-            )}
-          </motion.div>
-        )}
+            <Play className="w-5 h-5 mr-2" />
+            Start Game
+          </Button>
+          
+          {!isHost && (
+            <p className="text-white/70 text-sm mt-2">
+              Waiting for host to start the game...
+            </p>
+          )}
+          
+          {isHost && currentPlayers < 2 && (
+            <p className="text-yellow-400 text-sm mt-2">
+              Need at least 2 players to start
+            </p>
+          )}
+        </motion.div>
 
         {/* Instructions */}
-        <motion.div 
-          className="text-center text-white/60 text-sm space-y-2"
+        <motion.div
+          className="text-center text-white/70 space-y-2 max-w-2xl mx-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
         >
-          <p>Share the room code with your friends to get them in the game!</p>
+          <p className="text-lg font-medium text-white">
+            Share the room code with your friends to get them in the game!
+          </p>
           <p>Perfect for Discord voice chats, Twitch streams, or party nights 🎉</p>
         </motion.div>
       </div>
