@@ -1,288 +1,232 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { UserPlus, Users, Gamepad2, Zap, MessageCircle, Trophy, Home, ArrowLeft } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { 
+  Users, 
+  Gamepad2, 
+  Zap, 
+  Crown,
+  Heart,
+  Target,
+  Sparkles
+} from 'lucide-react'
 
-const LandingPage = ({ gameState, onCreateRoom, onJoinRoom }) => {
-  const navigate = useNavigate()
-  const [createName, setCreateName] = useState('')
-  const [joinName, setJoinName] = useState('')
-  const [joinCode, setJoinCode] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+const LandingPage = ({ onCreateRoom, onJoinRoom, connected, connectionStatus }) => {
+  const [createPlayerName, setCreatePlayerName] = useState('')
+  const [joinPlayerName, setJoinPlayerName] = useState('')
+  const [joinRoomCode, setJoinRoomCode] = useState('')
 
-  // Navigate to lobby when room is created
-  useEffect(() => {
-    if (gameState.roomCode && gameState.roomData) {
-      navigate(`/lobby/${gameState.roomCode}`)
+  const handleCreateRoom = () => {
+    if (!createPlayerName.trim()) {
+      alert('Please enter your name')
+      return
     }
-  }, [gameState.roomCode, gameState.roomData, navigate])
-
-  const handleCreateRoom = async () => {
-    if (createName.trim() && !isLoading) {
-      setIsLoading(true)
-      try {
-        await onCreateRoom(createName.trim())
-      } catch (error) {
-        console.error('Error creating room:', error)
-      } finally {
-        setIsLoading(false)
-      }
+    if (!connected) {
+      alert('Not connected to server. Please wait for connection.')
+      return
     }
+    onCreateRoom(createPlayerName.trim())
   }
 
-  const handleJoinRoom = async () => {
-    if (joinName.trim() && joinCode.trim() && !isLoading) {
-      setIsLoading(true)
-      try {
-        await onJoinRoom(joinCode.trim().toUpperCase(), joinName.trim())
-      } catch (error) {
-        console.error('Error joining room:', error)
-      } finally {
-        setIsLoading(false)
-      }
+  const handleJoinRoom = () => {
+    if (!joinPlayerName.trim()) {
+      alert('Please enter your name')
+      return
     }
-  }
-
-  const handleKeyPress = (e, action) => {
-    if (e.key === 'Enter') {
-      action()
+    if (!joinRoomCode.trim()) {
+      alert('Please enter a room code')
+      return
     }
+    if (!connected) {
+      alert('Not connected to server. Please wait for connection.')
+      return
+    }
+    onJoinRoom(joinRoomCode.trim().toUpperCase(), joinPlayerName.trim())
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
-      {/* Back to Home Button - Always visible */}
-      <motion.div 
-        className="absolute top-4 left-4 z-10"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => window.location.reload()}
-          className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm"
-        >
-          <Home className="w-4 h-4 mr-2" />
-          Home
-        </Button>
-      </motion.div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
+      </div>
 
-      {/* Connection Status */}
-      <motion.div 
-        className="absolute top-4 right-4 z-10"
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Badge 
-          variant={gameState.connected ? "default" : "destructive"}
-          className={gameState.connected ? "bg-green-500 text-white" : "bg-red-500 text-white"}
-        >
-          {gameState.connected ? "Connected ✓" : "Disconnected ✗"}
-        </Badge>
-      </motion.div>
-
-      <div className="max-w-6xl w-full space-y-8">
+      <div className="max-w-4xl w-full space-y-8 relative z-10">
         {/* Header */}
-        <motion.div 
-          className="text-center space-y-6"
-          initial={{ opacity: 0, y: -50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-        >
-          <h1 className="text-6xl md:text-8xl font-bold bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-            👑 Roast Royale 👑
-          </h1>
-          <p className="text-xl md:text-2xl text-white/90 font-medium">
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <Crown className="w-12 h-12 text-yellow-400" />
+            <h1 className="text-6xl font-bold bg-gradient-to-r from-pink-400 via-purple-500 to-blue-500 bg-clip-text text-transparent">
+              Roast Royale
+            </h1>
+            <Crown className="w-12 h-12 text-yellow-400" />
+          </div>
+          
+          <p className="text-xl text-white/80 font-medium">
             Think you know your friends? Think again.
           </p>
           
-          {/* Feature Badges */}
-          <div className="flex flex-wrap justify-center gap-3">
-            <Badge variant="secondary" className="bg-orange-500/20 text-orange-300 border-orange-500/30">
-              🎯 Multiple Choice Questions
+          {/* Feature badges */}
+          <div className="flex flex-wrap justify-center gap-3 mt-6">
+            <Badge className="bg-red-500/20 text-red-300 border-red-500/30 px-3 py-1">
+              <Heart className="w-4 h-4 mr-1" />
+              Multiple Choice Questions
             </Badge>
-            <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30">
-              ✨ Trending Topics
+            <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1">
+              <Sparkles className="w-4 h-4 mr-1" />
+              Trending Topics
             </Badge>
-            <Badge variant="secondary" className="bg-purple-500/20 text-purple-300 border-purple-500/30">
-              📺 Perfect for Streamers
+            <Badge className="bg-green-500/20 text-green-300 border-green-500/30 px-3 py-1">
+              <Target className="w-4 h-4 mr-1" />
+              Perfect for Streamers
             </Badge>
           </div>
-        </motion.div>
+        </div>
 
-        {/* Game Creation/Join Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Create Room Card */}
-          <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
-            <Card className="bg-white/10 border-white/20 backdrop-blur-sm hover:bg-white/15 transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <UserPlus className="w-5 h-5 text-green-400" />
-                  Create Room
-                </CardTitle>
-                <CardDescription className="text-white/70">
-                  Start a new game and invite your friends
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  placeholder="Enter your name"
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  onKeyPress={(e) => handleKeyPress(e, handleCreateRoom)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                  maxLength={20}
-                />
-                <Button 
-                  onClick={handleCreateRoom}
-                  disabled={!createName.trim() || isLoading}
-                  className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold"
-                >
-                  {isLoading ? "Creating..." : "Create Game Room"}
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
+        {/* Main Actions */}
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Create Room */}
+          <Card className="bg-white/10 border-white/20 backdrop-blur-sm hover:bg-white/15 transition-all duration-300">
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Gamepad2 className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-white text-2xl">Create Room</CardTitle>
+              <CardDescription className="text-white/70 text-lg">
+                Start a new game and invite your friends
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Enter your name"
+                value={createPlayerName}
+                onChange={(e) => setCreatePlayerName(e.target.value)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-lg py-3"
+                onKeyPress={(e) => e.key === 'Enter' && handleCreateRoom()}
+              />
+              <Button
+                onClick={handleCreateRoom}
+                disabled={!connected || !createPlayerName.trim()}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Users className="w-5 h-5 mr-2" />
+                Create Game Room
+              </Button>
+            </CardContent>
+          </Card>
 
-          {/* Join Room Card */}
-          <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-          >
-            <Card className="bg-white/10 border-white/20 backdrop-blur-sm hover:bg-white/15 transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-400" />
-                  Join Room
-                </CardTitle>
-                <CardDescription className="text-white/70">
-                  Enter a room code to join an existing game
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  placeholder="Enter your name"
-                  value={joinName}
-                  onChange={(e) => setJoinName(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                  maxLength={20}
-                />
-                <Input
-                  placeholder="Room code (e.g. ABC123)"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  onKeyPress={(e) => handleKeyPress(e, handleJoinRoom)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                  maxLength={6}
-                />
-                <Button 
-                  onClick={handleJoinRoom}
-                  disabled={!joinName.trim() || !joinCode.trim() || isLoading}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold"
-                >
-                  {isLoading ? "Joining..." : "Join Game"}
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
+          {/* Join Room */}
+          <Card className="bg-white/10 border-white/20 backdrop-blur-sm hover:bg-white/15 transition-all duration-300">
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-white text-2xl">Join Room</CardTitle>
+              <CardDescription className="text-white/70 text-lg">
+                Enter a room code to join an existing game
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Enter your name"
+                value={joinPlayerName}
+                onChange={(e) => setJoinPlayerName(e.target.value)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-lg py-3"
+              />
+              <Input
+                placeholder="Room code (e.g. ABC123)"
+                value={joinRoomCode}
+                onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-lg py-3 font-mono"
+                maxLength={6}
+                onKeyPress={(e) => e.key === 'Enter' && handleJoinRoom()}
+              />
+              <Button
+                onClick={handleJoinRoom}
+                disabled={!connected || !joinPlayerName.trim() || !joinRoomCode.trim()}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Target className="w-5 h-5 mr-2" />
+                Join Game
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Game Modes */}
-        <motion.div
-          className="text-center space-y-6"
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-        >
-          <h2 className="text-3xl md:text-4xl font-bold text-white">Game Modes</h2>
-          
-          {/* Team Size Badges */}
-          <div className="flex flex-wrap justify-center gap-3">
-            <Badge className="bg-red-500 text-white px-4 py-2 text-sm font-bold">
-              1v1 <span className="text-xs ml-1">Intense duels</span>
-            </Badge>
-            <Badge className="bg-orange-500 text-white px-4 py-2 text-sm font-bold">
-              2v2 <span className="text-xs ml-1">Couple's therapy</span>
-            </Badge>
-            <Badge className="bg-yellow-500 text-white px-4 py-2 text-sm font-bold">
-              3v3 <span className="text-xs ml-1">Squad goals</span>
-            </Badge>
-            <Badge className="bg-green-500 text-white px-4 py-2 text-sm font-bold">
-              4v4 <span className="text-xs ml-1">Crew battles</span>
-            </Badge>
-            <Badge className="bg-blue-500 text-white px-4 py-2 text-sm font-bold">
-              5v5 <span className="text-xs ml-1">Army warfare</span>
-            </Badge>
-            <Badge className="bg-purple-500 text-white px-4 py-2 text-sm font-bold">
-              FFA <span className="text-xs ml-1">Pure chaos</span>
+        <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-white text-2xl text-center">Game Modes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-6 text-center">
+              <div className="space-y-2">
+                <div className="text-3xl">1v1</div>
+                <div className="text-white/70">Intense duels</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl">2v2</div>
+                <div className="text-white/70">Couple's therapy</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl">3v3</div>
+                <div className="text-white/70">Squad goals</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl">4v4</div>
+                <div className="text-white/70">Crew battles</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl">5v5</div>
+                <div className="text-white/70">Army warfare</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl">FFA</div>
+                <div className="text-white/70">Pure chaos</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Team Battles */}
+        <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-white text-2xl text-center">Team Battles</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-white/70 text-center text-lg">
+              1v1 to 5v5 epic showdowns
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Chaos Cards */}
+        <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-white text-2xl text-center flex items-center justify-center gap-2">
+              <Zap className="w-6 h-6 text-yellow-400" />
+              Chaos Cards
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-white/70 text-center text-lg">
+              Power-ups that change everything
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Connection Status */}
+        {!connected && (
+          <div className="text-center">
+            <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 px-4 py-2">
+              {connectionStatus === 'connecting' ? 'Connecting to server...' : 'Connection issues'}
             </Badge>
           </div>
-        </motion.div>
-
-        {/* Feature Cards */}
-        <motion.div
-          className="grid md:grid-cols-4 gap-6 max-w-5xl mx-auto"
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.8 }}
-        >
-          <Card className="bg-white/10 border-white/20 backdrop-blur-sm text-center">
-            <CardContent className="p-6">
-              <Users className="w-8 h-8 text-blue-400 mx-auto mb-3" />
-              <h3 className="text-white font-semibold mb-2">Team Battles</h3>
-              <p className="text-white/70 text-sm">1v1 to 5v5 epic showdowns</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/10 border-white/20 backdrop-blur-sm text-center">
-            <CardContent className="p-6">
-              <Zap className="w-8 h-8 text-yellow-400 mx-auto mb-3" />
-              <h3 className="text-white font-semibold mb-2">Chaos Cards</h3>
-              <p className="text-white/70 text-sm">Power-ups that change everything</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/10 border-white/20 backdrop-blur-sm text-center">
-            <CardContent className="p-6">
-              <MessageCircle className="w-8 h-8 text-pink-400 mx-auto mb-3" />
-              <h3 className="text-white font-semibold mb-2">Multiple Choice</h3>
-              <p className="text-white/70 text-sm">No more typing - just click!</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/10 border-white/20 backdrop-blur-sm text-center">
-            <CardContent className="p-6">
-              <Trophy className="w-8 h-8 text-green-400 mx-auto mb-3" />
-              <h3 className="text-white font-semibold mb-2">Viral Moments</h3>
-              <p className="text-white/70 text-sm">Clip-worthy content guaranteed</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Footer */}
-        <motion.div
-          className="text-center text-white/70 space-y-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 1.0 }}
-        >
-          <p>Perfect for Discord friend groups, Twitch streamers, and party nights</p>
-          <p className="text-lg font-semibold text-white">
-            Get ready to discover who really knows who! 🔥
-          </p>
-        </motion.div>
+        )}
       </div>
     </div>
   )
