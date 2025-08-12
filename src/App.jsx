@@ -1,93 +1,13 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, Wifi, WifiOff, RefreshCw } from 'lucide-react'
-
-// Import components with error boundaries
-let LandingPage, GameLobby, TeamFormation, GamePlay, socketService
-
-try {
-  LandingPage = require('./components/LandingPage').default
-} catch (e) {
-  console.error('Failed to load LandingPage:', e)
-  LandingPage = () => <div className="text-white p-8">Loading Landing Page...</div>
-}
-
-try {
-  GameLobby = require('./components/GameLobby').default
-} catch (e) {
-  console.error('Failed to load GameLobby:', e)
-  GameLobby = () => <div className="text-white p-8">Loading Game Lobby...</div>
-}
-
-try {
-  TeamFormation = require('./components/TeamFormation').default
-} catch (e) {
-  console.error('Failed to load TeamFormation:', e)
-  TeamFormation = () => <div className="text-white p-8">Loading Team Formation...</div>
-}
-
-try {
-  GamePlay = require('./components/GamePlay').default
-} catch (e) {
-  console.error('Failed to load GamePlay:', e)
-  GamePlay = () => <div className="text-white p-8">Loading Game Play...</div>
-}
-
-try {
-  socketService = require('./services/socket').default
-} catch (e) {
-  console.error('Failed to load socket service:', e)
-  socketService = {
-    socket: null,
-    connect: () => console.log('Socket service not available'),
-    on: () => {},
-    emit: () => {},
-    disconnect: () => {},
-    createRoom: () => {},
-    joinRoom: () => {},
-    onConnect: () => {},
-    onDisconnect: () => {}
-  }
-}
-
-// Error Boundary Component
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = { hasError: false, error: null }
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error }
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo)
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-          <div className="text-center text-white">
-            <h1 className="text-4xl font-bold mb-4">🚨 Something went wrong</h1>
-            <p className="text-lg mb-4">The game encountered an error</p>
-            <Button 
-              onClick={() => window.location.reload()} 
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              Reload Game
-            </Button>
-          </div>
-        </div>
-      )
-    }
-
-    return this.props.children
-  }
-}
+import LandingPage from './components/LandingPage'
+import GameLobby from './components/GameLobby'
+import TeamFormation from './components/TeamFormation'
+import GamePlay from './components/GamePlay'
+import socketService from './services/socket'
 
 function App() {
   const [gameState, setGameState] = useState({
@@ -114,37 +34,18 @@ function App() {
 
   // Safe initialization
   useEffect(() => {
-    try {
-      console.log('🚀 Initializing Roast Royale...')
-      initializeSocket()
-    } catch (error) {
-      console.error('Initialization error:', error)
-      setGameState(prev => ({
-        ...prev,
-        connected: false,
-        connectionStatus: 'error',
-        lastError: error.message
-      }))
-    }
+    console.log('🚀 Initializing Roast Royale...')
+    initializeSocket()
 
     return () => {
-      try {
-        if (socketService && socketService.disconnect) {
-          socketService.disconnect()
-        }
-      } catch (error) {
-        console.error('Cleanup error:', error)
+      if (socketService && socketService.disconnect) {
+        socketService.disconnect()
       }
     }
   }, [])
 
   const initializeSocket = () => {
     try {
-      if (!socketService) {
-        console.warn('Socket service not available')
-        return
-      }
-
       // Setup connection callbacks
       socketService.onConnect((data) => {
         console.log('✅ Socket connected:', data)
@@ -203,260 +104,187 @@ function App() {
   }
 
   const setupGameEventListeners = () => {
-    if (!socketService || !socketService.on) return
+    // Room creation
+    socketService.on('room_created', (data) => {
+      console.log('🏠 Room created:', data)
+      if (data && data.success) {
+        updateGameState({
+          currentScreen: 'lobby',
+          roomCode: data.room_code || '',
+          roomData: data.room_data || null,
+          isHost: true
+        })
+      }
+    })
 
-    try {
-      // Room creation
-      socketService.on('room_created', (data) => {
-        console.log('🏠 Room created:', data)
-        if (data && data.success) {
-          updateGameState({
-            currentScreen: 'lobby',
-            roomCode: data.room_code || '',
-            roomData: data.room_data || null,
-            isHost: true
-          })
-        }
-      })
+    socketService.on('room_error', (data) => {
+      console.error('❌ Room error:', data)
+      alert(`Room Error: ${data?.message || 'Unknown error'}`)
+    })
 
-      socketService.on('room_error', (data) => {
-        console.error('❌ Room error:', data)
-        alert(`Room Error: ${data?.message || 'Unknown error'}`)
-      })
+    // Room joining
+    socketService.on('join_success', (data) => {
+      console.log('👥 Joined room successfully:', data)
+      if (data && data.success && data.room_data) {
+        updateGameState({
+          currentScreen: 'lobby',
+          roomCode: data.room_data.room_code || '',
+          roomData: data.room_data,
+          isHost: false
+        })
+      }
+    })
 
-      // Room joining
-      socketService.on('join_success', (data) => {
-        console.log('👥 Joined room successfully:', data)
-        if (data && data.success && data.room_data) {
-          updateGameState({
-            currentScreen: 'lobby',
-            roomCode: data.room_data.room_code || '',
-            roomData: data.room_data,
-            isHost: false
-          })
-        }
-      })
+    socketService.on('join_error', (data) => {
+      console.error('❌ Join error:', data)
+      alert(`Join Error: ${data?.message || 'Failed to join room'}`)
+    })
 
-      socketService.on('join_error', (data) => {
-        console.error('❌ Join error:', data)
-        alert(`Join Error: ${data?.message || 'Failed to join room'}`)
-      })
+    // Room updates
+    socketService.on('room_updated', (roomData) => {
+      console.log('🔄 Room updated:', roomData)
+      if (roomData) {
+        updateGameState({ roomData })
+      }
+    })
 
-      // Room updates
-      socketService.on('room_updated', (roomData) => {
-        console.log('🔄 Room updated:', roomData)
-        if (roomData) {
-          updateGameState({ roomData })
-        }
-      })
+    // Game events
+    socketService.on('game_started', (data) => {
+      console.log('🎮 Game started:', data)
+      if (data && data.room_data) {
+        updateGameState({
+          currentScreen: 'gameplay',
+          gameData: data.room_data
+        })
+      }
+    })
 
-      // Game events
-      socketService.on('game_started', (data) => {
-        console.log('🎮 Game started:', data)
-        if (data && data.room_data) {
-          updateGameState({
-            currentScreen: 'gameplay',
-            gameData: data.room_data
-          })
-        }
-      })
+    socketService.on('game_error', (data) => {
+      console.error('❌ Game error:', data)
+      alert(`Game Error: ${data?.message || 'Game error occurred'}`)
+    })
 
-      socketService.on('game_error', (data) => {
-        console.error('❌ Game error:', data)
-        alert(`Game Error: ${data?.message || 'Game error occurred'}`)
-      })
+    socketService.on('game_state_updated', (gameData) => {
+      console.log('🎯 Game state updated:', gameData)
+      if (gameData) {
+        updateGameState({ gameData })
+      }
+    })
 
-      socketService.on('game_state_updated', (gameData) => {
-        console.log('🎯 Game state updated:', gameData)
-        if (gameData) {
-          updateGameState({ gameData })
-        }
-      })
+    socketService.on('round_started', (data) => {
+      console.log('▶️ Round started:', data)
+      if (data && data.room_data) {
+        updateGameState({ gameData: data.room_data })
+      }
+    })
 
-      socketService.on('round_started', (data) => {
-        console.log('▶️ Round started:', data)
-        if (data && data.room_data) {
-          updateGameState({ gameData: data.room_data })
-        }
-      })
+    socketService.on('round_ended', (data) => {
+      console.log('⏹️ Round ended:', data)
+      if (data && data.room_data) {
+        updateGameState({ gameData: data.room_data })
+      }
+    })
 
-      socketService.on('round_ended', (data) => {
-        console.log('⏹️ Round ended:', data)
-        if (data && data.room_data) {
-          updateGameState({ gameData: data.room_data })
-        }
-      })
+    socketService.on('game_ended', (data) => {
+      console.log('🏆 Game ended:', data)
+      if (data && data.room_data) {
+        updateGameState({ 
+          gameData: { ...data.room_data, gameEnded: true }
+        })
+      }
+    })
 
-      socketService.on('game_ended', (data) => {
-        console.log('🏆 Game ended:', data)
-        if (data && data.room_data) {
-          updateGameState({ 
-            gameData: { ...data.room_data, gameEnded: true }
-          })
-        }
-      })
+    // Connection events
+    socketService.on('connected', (data) => {
+      console.log('🔗 Server connection confirmed:', data)
+    })
 
-      // Connection events
-      socketService.on('connected', (data) => {
-        console.log('🔗 Server connection confirmed:', data)
-      })
-
-      // Error handling
-      socketService.on('error', (data) => {
-        console.error('🚨 Socket error:', data)
-        setGameState(prev => ({
-          ...prev,
-          lastError: data?.message || 'Socket error'
-        }))
-      })
-
-    } catch (error) {
-      console.error('Error setting up event listeners:', error)
-    }
+    // Error handling
+    socketService.on('error', (data) => {
+      console.error('🚨 Socket error:', data)
+      setGameState(prev => ({
+        ...prev,
+        lastError: data?.message || 'Socket error'
+      }))
+    })
   }
 
   const updateGameState = (updates) => {
-    try {
-      setGameState(prev => ({ ...prev, ...updates }))
-    } catch (error) {
-      console.error('Error updating game state:', error)
-    }
+    setGameState(prev => ({ ...prev, ...updates }))
   }
 
   // Manual reconnection
   const handleReconnect = () => {
-    try {
-      console.log('🔄 Manual reconnection triggered')
-      setGameState(prev => ({
-        ...prev,
-        connectionStatus: 'connecting',
-        lastError: null
-      }))
-      if (socketService && socketService.forceReconnect) {
-        socketService.forceReconnect()
-      }
-    } catch (error) {
-      console.error('Reconnection error:', error)
+    console.log('🔄 Manual reconnection triggered')
+    setGameState(prev => ({
+      ...prev,
+      connectionStatus: 'connecting',
+      lastError: null
+    }))
+    if (socketService && socketService.forceReconnect) {
+      socketService.forceReconnect()
     }
   }
 
-  // Game actions with error handling
+  // Game actions
   const handleCreateRoom = (playerName) => {
-    try {
-      if (!gameState.connected) {
-        alert('Not connected to server. Please wait for connection.')
-        return
-      }
-      
-      updateGameState({ playerName: playerName || '' })
-      if (socketService && socketService.createRoom) {
-        socketService.createRoom(playerName)
-      }
-    } catch (error) {
-      console.error('Create room error:', error)
-      alert('Failed to create room')
+    if (!gameState.connected) {
+      alert('Not connected to server. Please wait for connection.')
+      return
     }
+    
+    updateGameState({ playerName: playerName || '' })
+    socketService.createRoom(playerName)
   }
 
   const handleJoinRoom = (roomCode, playerName) => {
-    try {
-      if (!gameState.connected) {
-        alert('Not connected to server. Please wait for connection.')
-        return
-      }
-      
-      updateGameState({ playerName: playerName || '' })
-      if (socketService && socketService.joinRoom) {
-        socketService.joinRoom(roomCode, playerName)
-      }
-    } catch (error) {
-      console.error('Join room error:', error)
-      alert('Failed to join room')
+    if (!gameState.connected) {
+      alert('Not connected to server. Please wait for connection.')
+      return
     }
+    
+    updateGameState({ playerName: playerName || '' })
+    socketService.joinRoom(roomCode, playerName)
   }
 
   const handleStartGame = (settings) => {
-    try {
-      if (!gameState.isHost) {
-        alert('Only the host can start the game.')
-        return
-      }
-      
-      if (socketService && socketService.startGame) {
-        socketService.startGame(gameState.roomCode, settings || {})
-      }
-    } catch (error) {
-      console.error('Start game error:', error)
-      alert('Failed to start game')
+    if (!gameState.isHost) {
+      alert('Only the host can start the game.')
+      return
     }
+    
+    socketService.startGame(gameState.roomCode, settings || {})
   }
 
   const handleSubmitAnswer = (answerData) => {
-    try {
-      if (socketService && socketService.submitAnswer) {
-        socketService.submitAnswer(gameState.roomCode, answerData || {})
-      }
-    } catch (error) {
-      console.error('Submit answer error:', error)
-    }
+    socketService.submitAnswer(gameState.roomCode, answerData || {})
   }
 
   const handleUseChaosCard = (cardType) => {
-    try {
-      if (socketService && socketService.useChaosCard) {
-        socketService.useChaosCard(gameState.roomCode, cardType)
-      }
-    } catch (error) {
-      console.error('Chaos card error:', error)
-    }
+    socketService.useChaosCard(gameState.roomCode, cardType)
   }
 
   const handleRevealAnswer = () => {
-    try {
-      if (socketService && socketService.revealAnswer) {
-        socketService.revealAnswer(gameState.roomCode)
-      }
-    } catch (error) {
-      console.error('Reveal answer error:', error)
-    }
+    socketService.revealAnswer(gameState.roomCode)
   }
 
   const handleNextRound = () => {
-    try {
-      if (socketService && socketService.nextRound) {
-        socketService.nextRound(gameState.roomCode)
-      }
-    } catch (error) {
-      console.error('Next round error:', error)
-    }
+    socketService.nextRound(gameState.roomCode)
   }
 
   const handleBackToHome = () => {
-    try {
-      if (gameState.roomCode && socketService && socketService.leaveRoom) {
-        socketService.leaveRoom(gameState.roomCode)
-      }
-      
-      updateGameState({
-        currentScreen: 'landing',
-        roomCode: '',
-        roomData: null,
-        gameData: null,
-        isHost: false,
-        playerName: ''
-      })
-    } catch (error) {
-      console.error('Back to home error:', error)
-      // Force navigation even if there's an error
-      updateGameState({
-        currentScreen: 'landing',
-        roomCode: '',
-        roomData: null,
-        gameData: null,
-        isHost: false,
-        playerName: ''
-      })
+    if (gameState.roomCode) {
+      socketService.leaveRoom(gameState.roomCode)
     }
+    
+    updateGameState({
+      currentScreen: 'landing',
+      roomCode: '',
+      roomData: null,
+      gameData: null,
+      isHost: false,
+      playerName: ''
+    })
   }
 
   // Connection status component
@@ -512,81 +340,57 @@ function App() {
     )
   }
 
-  return (
-    <ErrorBoundary>
-      <Router>
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-          <ConnectionStatus />
+  const renderCurrentScreen = () => {
+    switch (gameState.currentScreen) {
+      case 'lobby':
+        return (
+          <GameLobby
+            roomData={gameState.roomData}
+            isHost={gameState.isHost}
+            onStartGame={handleStartGame}
+            onBackToHome={handleBackToHome}
+            connected={gameState.connected}
+          />
+        )
+      
+      case 'teams':
+        return (
+          <TeamFormation
+            roomData={gameState.roomData}
+            onStartGame={handleStartGame}
+            onBackToHome={handleBackToHome}
+          />
+        )
+      
+      case 'gameplay':
+        return (
+          <GamePlay
+            gameState={gameState}
+            onSubmitAnswer={handleSubmitAnswer}
+            onUseChaosCard={handleUseChaosCard}
+            onRevealAnswer={handleRevealAnswer}
+            onNextRound={handleNextRound}
+            onBackToHome={handleBackToHome}
+          />
+        )
+      
+      default:
+        return (
+          <LandingPage
+            onCreateRoom={handleCreateRoom}
+            onJoinRoom={handleJoinRoom}
+            connected={gameState.connected}
+            connectionStatus={gameState.connectionStatus}
+          />
+        )
+    }
+  }
 
-          <Routes>
-            <Route 
-              path="/" 
-              element={
-                <LandingPage
-                  onCreateRoom={handleCreateRoom}
-                  onJoinRoom={handleJoinRoom}
-                  connected={gameState.connected}
-                  connectionStatus={gameState.connectionStatus}
-                />
-              } 
-            />
-            
-            <Route 
-              path="/lobby/:roomCode?" 
-              element={
-                gameState.currentScreen === 'lobby' ? (
-                  <GameLobby
-                    roomData={gameState.roomData}
-                    isHost={gameState.isHost}
-                    onStartGame={handleStartGame}
-                    onBackToHome={handleBackToHome}
-                    connected={gameState.connected}
-                  />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              } 
-            />
-            
-            <Route 
-              path="/teams/:roomCode?" 
-              element={
-                gameState.currentScreen === 'teams' ? (
-                  <TeamFormation
-                    roomData={gameState.roomData}
-                    onStartGame={handleStartGame}
-                    onBackToHome={handleBackToHome}
-                  />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              } 
-            />
-            
-            <Route 
-              path="/game/:roomCode?" 
-              element={
-                gameState.currentScreen === 'gameplay' ? (
-                  <GamePlay
-                    gameState={gameState}
-                    onSubmitAnswer={handleSubmitAnswer}
-                    onUseChaosCard={handleUseChaosCard}
-                    onRevealAnswer={handleRevealAnswer}
-                    onNextRound={handleNextRound}
-                    onBackToHome={handleBackToHome}
-                  />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              } 
-            />
-            
-            {/* Fallback route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </Router>
-    </ErrorBoundary>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <ConnectionStatus />
+      {renderCurrentScreen()}
+    </div>
   )
 }
 
