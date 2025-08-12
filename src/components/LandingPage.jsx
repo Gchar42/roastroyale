@@ -1,17 +1,4 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { 
-  Users, 
-  Gamepad2, 
-  Zap, 
-  Crown,
-  Heart,
-  Target,
-  Sparkles
-} from 'lucide-react'
 
 const LandingPage = ({ onCreateRoom, onJoinRoom, connected, connectionStatus }) => {
   const [createPlayerName, setCreatePlayerName] = useState('')
@@ -46,188 +33,352 @@ const LandingPage = ({ onCreateRoom, onJoinRoom, connected, connectionStatus }) 
     onJoinRoom(joinRoomCode.trim().toUpperCase(), joinPlayerName.trim())
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      fontFamily: 'Arial, sans-serif',
+      position: 'relative',
+      overflow: 'hidden'
+    },
+    backgroundBlob1: {
+      position: 'absolute',
+      top: '-200px',
+      right: '-200px',
+      width: '400px',
+      height: '400px',
+      background: 'rgba(147, 51, 234, 0.2)',
+      borderRadius: '50%',
+      filter: 'blur(60px)',
+      animation: 'pulse 3s infinite'
+    },
+    backgroundBlob2: {
+      position: 'absolute',
+      bottom: '-200px',
+      left: '-200px',
+      width: '400px',
+      height: '400px',
+      background: 'rgba(59, 130, 246, 0.2)',
+      borderRadius: '50%',
+      filter: 'blur(60px)',
+      animation: 'pulse 3s infinite 1s'
+    },
+    content: {
+      maxWidth: '1000px',
+      width: '100%',
+      position: 'relative',
+      zIndex: 10
+    },
+    header: {
+      textAlign: 'center',
+      marginBottom: '40px'
+    },
+    title: {
+      fontSize: '4rem',
+      fontWeight: 'bold',
+      background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      marginBottom: '20px',
+      textShadow: '0 4px 8px rgba(0,0,0,0.3)'
+    },
+    subtitle: {
+      fontSize: '1.5rem',
+      color: 'rgba(255,255,255,0.9)',
+      marginBottom: '30px'
+    },
+    badges: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: '10px',
+      marginBottom: '20px'
+    },
+    badge: {
+      background: 'rgba(255,255,255,0.1)',
+      color: 'rgba(255,255,255,0.9)',
+      padding: '8px 16px',
+      borderRadius: '20px',
+      border: '1px solid rgba(255,255,255,0.2)',
+      fontSize: '0.9rem',
+      backdropFilter: 'blur(10px)'
+    },
+    cardsContainer: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+      gap: '30px',
+      marginBottom: '40px'
+    },
+    card: {
+      background: 'rgba(255,255,255,0.1)',
+      border: '1px solid rgba(255,255,255,0.2)',
+      borderRadius: '20px',
+      padding: '30px',
+      backdropFilter: 'blur(10px)',
+      transition: 'all 0.3s ease',
+      cursor: 'pointer'
+    },
+    cardHover: {
+      background: 'rgba(255,255,255,0.15)',
+      transform: 'translateY(-5px)',
+      boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+    },
+    cardIcon: {
+      width: '60px',
+      height: '60px',
+      background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      margin: '0 auto 20px',
+      fontSize: '24px'
+    },
+    cardTitle: {
+      color: 'white',
+      fontSize: '1.8rem',
+      fontWeight: 'bold',
+      marginBottom: '10px',
+      textAlign: 'center'
+    },
+    cardDescription: {
+      color: 'rgba(255,255,255,0.8)',
+      fontSize: '1.1rem',
+      marginBottom: '20px',
+      textAlign: 'center'
+    },
+    input: {
+      width: '100%',
+      padding: '15px',
+      marginBottom: '15px',
+      background: 'rgba(255,255,255,0.1)',
+      border: '1px solid rgba(255,255,255,0.2)',
+      borderRadius: '10px',
+      color: 'white',
+      fontSize: '1.1rem',
+      outline: 'none'
+    },
+    button: {
+      width: '100%',
+      padding: '15px',
+      background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)',
+      border: 'none',
+      borderRadius: '10px',
+      color: 'white',
+      fontSize: '1.2rem',
+      fontWeight: 'bold',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+    },
+    buttonDisabled: {
+      background: 'rgba(255,255,255,0.2)',
+      cursor: 'not-allowed',
+      opacity: 0.6
+    },
+    gameModesCard: {
+      background: 'rgba(255,255,255,0.05)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: '20px',
+      padding: '30px',
+      marginBottom: '20px'
+    },
+    gameModesTitle: {
+      color: 'white',
+      fontSize: '1.8rem',
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: '20px'
+    },
+    gameModesGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+      gap: '20px',
+      textAlign: 'center'
+    },
+    gameModeItem: {
+      color: 'white'
+    },
+    gameModeNumber: {
+      fontSize: '2rem',
+      fontWeight: 'bold',
+      marginBottom: '5px'
+    },
+    gameModeDescription: {
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: '0.9rem'
+    },
+    connectionStatus: {
+      textAlign: 'center',
+      marginTop: '20px'
+    },
+    statusBadge: {
+      background: connected ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+      color: connected ? '#22c55e' : '#ef4444',
+      border: `1px solid ${connected ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+      padding: '8px 16px',
+      borderRadius: '20px',
+      fontSize: '0.9rem'
+    }
+  }
 
-      <div className="max-w-4xl w-full space-y-8 relative z-10">
+  return (
+    <div style={styles.container}>
+      <div style={styles.backgroundBlob1}></div>
+      <div style={styles.backgroundBlob2}></div>
+      
+      <div style={styles.content}>
         {/* Header */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <Crown className="w-12 h-12 text-yellow-400" />
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-pink-400 via-purple-500 to-blue-500 bg-clip-text text-transparent">
-              Roast Royale
-            </h1>
-            <Crown className="w-12 h-12 text-yellow-400" />
-          </div>
+        <div style={styles.header}>
+          <h1 style={styles.title}>👑 Roast Royale 👑</h1>
+          <p style={styles.subtitle}>Think you know your friends? Think again.</p>
           
-          <p className="text-xl text-white/80 font-medium">
-            Think you know your friends? Think again.
-          </p>
-          
-          {/* Feature badges */}
-          <div className="flex flex-wrap justify-center gap-3 mt-6">
-            <Badge className="bg-red-500/20 text-red-300 border-red-500/30 px-3 py-1">
-              <Heart className="w-4 h-4 mr-1" />
-              Multiple Choice Questions
-            </Badge>
-            <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1">
-              <Sparkles className="w-4 h-4 mr-1" />
-              Trending Topics
-            </Badge>
-            <Badge className="bg-green-500/20 text-green-300 border-green-500/30 px-3 py-1">
-              <Target className="w-4 h-4 mr-1" />
-              Perfect for Streamers
-            </Badge>
+          <div style={styles.badges}>
+            <span style={styles.badge}>❤️ Multiple Choice Questions</span>
+            <span style={styles.badge}>✨ Trending Topics</span>
+            <span style={styles.badge}>🎯 Perfect for Streamers</span>
           </div>
         </div>
 
         {/* Main Actions */}
-        <div className="grid md:grid-cols-2 gap-8">
+        <div style={styles.cardsContainer}>
           {/* Create Room */}
-          <Card className="bg-white/10 border-white/20 backdrop-blur-sm hover:bg-white/15 transition-all duration-300">
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Gamepad2 className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle className="text-white text-2xl">Create Room</CardTitle>
-              <CardDescription className="text-white/70 text-lg">
-                Start a new game and invite your friends
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                placeholder="Enter your name"
-                value={createPlayerName}
-                onChange={(e) => setCreatePlayerName(e.target.value)}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-lg py-3"
-                onKeyPress={(e) => e.key === 'Enter' && handleCreateRoom()}
-              />
-              <Button
-                onClick={handleCreateRoom}
-                disabled={!connected || !createPlayerName.trim()}
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <Users className="w-5 h-5 mr-2" />
-                Create Game Room
-              </Button>
-            </CardContent>
-          </Card>
+          <div style={styles.card}>
+            <div style={styles.cardIcon}>🎮</div>
+            <h2 style={styles.cardTitle}>Create Room</h2>
+            <p style={styles.cardDescription}>Start a new game and invite your friends</p>
+            
+            <input
+              style={styles.input}
+              placeholder="Enter your name"
+              value={createPlayerName}
+              onChange={(e) => setCreatePlayerName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleCreateRoom()}
+            />
+            <button
+              style={{
+                ...styles.button,
+                ...((!connected || !createPlayerName.trim()) ? styles.buttonDisabled : {})
+              }}
+              onClick={handleCreateRoom}
+              disabled={!connected || !createPlayerName.trim()}
+              onMouseOver={(e) => {
+                if (connected && createPlayerName.trim()) {
+                  e.target.style.transform = 'translateY(-2px)'
+                  e.target.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'
+                }
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = 'translateY(0)'
+                e.target.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)'
+              }}
+            >
+              👥 Create Game Room
+            </button>
+          </div>
 
           {/* Join Room */}
-          <Card className="bg-white/10 border-white/20 backdrop-blur-sm hover:bg-white/15 transition-all duration-300">
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle className="text-white text-2xl">Join Room</CardTitle>
-              <CardDescription className="text-white/70 text-lg">
-                Enter a room code to join an existing game
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                placeholder="Enter your name"
-                value={joinPlayerName}
-                onChange={(e) => setJoinPlayerName(e.target.value)}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-lg py-3"
-              />
-              <Input
-                placeholder="Room code (e.g. ABC123)"
-                value={joinRoomCode}
-                onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-lg py-3 font-mono"
-                maxLength={6}
-                onKeyPress={(e) => e.key === 'Enter' && handleJoinRoom()}
-              />
-              <Button
-                onClick={handleJoinRoom}
-                disabled={!connected || !joinPlayerName.trim() || !joinRoomCode.trim()}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <Target className="w-5 h-5 mr-2" />
-                Join Game
-              </Button>
-            </CardContent>
-          </Card>
+          <div style={styles.card}>
+            <div style={styles.cardIcon}>👥</div>
+            <h2 style={styles.cardTitle}>Join Room</h2>
+            <p style={styles.cardDescription}>Enter a room code to join an existing game</p>
+            
+            <input
+              style={styles.input}
+              placeholder="Enter your name"
+              value={joinPlayerName}
+              onChange={(e) => setJoinPlayerName(e.target.value)}
+            />
+            <input
+              style={{...styles.input, fontFamily: 'monospace', textTransform: 'uppercase'}}
+              placeholder="Room code (e.g. ABC123)"
+              value={joinRoomCode}
+              onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
+              maxLength={6}
+              onKeyPress={(e) => e.key === 'Enter' && handleJoinRoom()}
+            />
+            <button
+              style={{
+                ...styles.button,
+                background: 'linear-gradient(45deg, #4ecdc4, #44a08d)',
+                ...((!connected || !joinPlayerName.trim() || !joinRoomCode.trim()) ? styles.buttonDisabled : {})
+              }}
+              onClick={handleJoinRoom}
+              disabled={!connected || !joinPlayerName.trim() || !joinRoomCode.trim()}
+              onMouseOver={(e) => {
+                if (connected && joinPlayerName.trim() && joinRoomCode.trim()) {
+                  e.target.style.transform = 'translateY(-2px)'
+                  e.target.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'
+                }
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = 'translateY(0)'
+                e.target.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)'
+              }}
+            >
+              🎯 Join Game
+            </button>
+          </div>
         </div>
 
         {/* Game Modes */}
-        <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-white text-2xl text-center">Game Modes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-6 text-center">
-              <div className="space-y-2">
-                <div className="text-3xl">1v1</div>
-                <div className="text-white/70">Intense duels</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-3xl">2v2</div>
-                <div className="text-white/70">Couple's therapy</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-3xl">3v3</div>
-                <div className="text-white/70">Squad goals</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-3xl">4v4</div>
-                <div className="text-white/70">Crew battles</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-3xl">5v5</div>
-                <div className="text-white/70">Army warfare</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-3xl">FFA</div>
-                <div className="text-white/70">Pure chaos</div>
-              </div>
+        <div style={styles.gameModesCard}>
+          <h2 style={styles.gameModesTitle}>Game Modes</h2>
+          <div style={styles.gameModesGrid}>
+            <div style={styles.gameModeItem}>
+              <div style={styles.gameModeNumber}>1v1</div>
+              <div style={styles.gameModeDescription}>Intense duels</div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Team Battles */}
-        <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-white text-2xl text-center">Team Battles</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-white/70 text-center text-lg">
-              1v1 to 5v5 epic showdowns
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Chaos Cards */}
-        <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-white text-2xl text-center flex items-center justify-center gap-2">
-              <Zap className="w-6 h-6 text-yellow-400" />
-              Chaos Cards
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-white/70 text-center text-lg">
-              Power-ups that change everything
-            </p>
-          </CardContent>
-        </Card>
+            <div style={styles.gameModeItem}>
+              <div style={styles.gameModeNumber}>2v2</div>
+              <div style={styles.gameModeDescription}>Couple's therapy</div>
+            </div>
+            <div style={styles.gameModeItem}>
+              <div style={styles.gameModeNumber}>3v3</div>
+              <div style={styles.gameModeDescription}>Squad goals</div>
+            </div>
+            <div style={styles.gameModeItem}>
+              <div style={styles.gameModeNumber}>4v4</div>
+              <div style={styles.gameModeDescription}>Crew battles</div>
+            </div>
+            <div style={styles.gameModeItem}>
+              <div style={styles.gameModeNumber}>5v5</div>
+              <div style={styles.gameModeDescription}>Army warfare</div>
+            </div>
+            <div style={styles.gameModeItem}>
+              <div style={styles.gameModeNumber}>FFA</div>
+              <div style={styles.gameModeDescription}>Pure chaos</div>
+            </div>
+          </div>
+        </div>
 
         {/* Connection Status */}
-        {!connected && (
-          <div className="text-center">
-            <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 px-4 py-2">
-              {connectionStatus === 'connecting' ? 'Connecting to server...' : 'Connection issues'}
-            </Badge>
-          </div>
-        )}
+        <div style={styles.connectionStatus}>
+          <span style={styles.statusBadge}>
+            {connected ? '✅ Connected' : '❌ Disconnected'}
+          </span>
+        </div>
       </div>
+
+      <style jsx>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 0.5; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.05); }
+        }
+        
+        input::placeholder {
+          color: rgba(255,255,255,0.5);
+        }
+        
+        input:focus {
+          border-color: rgba(255,255,255,0.4);
+          box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
+        }
+      `}</style>
     </div>
   )
 }
