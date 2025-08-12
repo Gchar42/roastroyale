@@ -22,6 +22,7 @@ import {
   Video
 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import socketService from '@/services/socket'
 
 const GameLobby = ({ gameState, onStartGame, updateGameState }) => {
   const navigate = useNavigate()
@@ -36,12 +37,21 @@ const GameLobby = ({ gameState, onStartGame, updateGameState }) => {
     trendingTopics: true
   })
 
-  // Get real player data - NO FAKE PLAYERS
+  // FIXED: Proper host detection using socket service
   const realPlayers = gameState.roomData?.players || []
   const currentPlayers = realPlayers.length
   const roomCodeDisplay = roomCode || gameState.roomCode
-  const playerSid = gameState.socketId || 'unknown'
-  const isHost = realPlayers.find(p => p.sid === playerSid)?.is_host || false
+  const currentSocketId = socketService.socket?.id
+  const isHost = realPlayers.find(p => p.sid === currentSocketId)?.is_host || false
+  const canStartGame = isHost && currentPlayers >= 2 && currentPlayers <= (selectedGameMode?.maxPlayers || 10)
+
+  console.log('GameLobby Debug:', {
+    currentSocketId,
+    realPlayers,
+    isHost,
+    canStartGame,
+    currentPlayers
+  })
 
   useEffect(() => {
     if (gameState.gameStarted) {
@@ -56,29 +66,93 @@ const GameLobby = ({ gameState, onStartGame, updateGameState }) => {
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error('Failed to copy room code:', err)
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = roomCodeDisplay
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     }
   }
 
+  // FIXED: Proper navigation to home screen
   const handleBackToHome = () => {
-    navigate('/')
+    console.log('Leaving game and going to home')
+    try {
+      // Disconnect from the room
+      if (socketService.socket && roomCodeDisplay) {
+        socketService.socket.emit('leave_room', { room_code: roomCodeDisplay })
+      }
+      
+      // Clear game state
+      updateGameState({
+        roomCode: '',
+        roomData: null,
+        gameData: null,
+        gameStarted: false
+      })
+      
+      // Navigate to home using React Router
+      navigate('/', { replace: true })
+      
+      // Fallback: Force navigation if React Router fails
+      setTimeout(() => {
+        if (window.location.pathname !== '/') {
+          window.location.href = '/'
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Error leaving game:', error)
+      // Force navigation as last resort
+      window.location.href = '/'
+    }
   }
 
   const handleStartGame = () => {
+    if (!isHost) {
+      alert('Only the host can start the game!')
+      return
+    }
+    
     if (currentPlayers < 2) {
       alert('Need at least 2 players to start the game!')
       return
     }
     
+    if (currentPlayers > (selectedGameMode?.maxPlayers || 10)) {
+      alert(`Too many players for ${gameMode} mode! Max: ${selectedGameMode?.maxPlayers}`)
+      return
+    }
+    
     const gameSettings = {
       gameMode,
-      maxPlayers,
+      maxPlayers: selectedGameMode?.maxPlayers || 10,
       ...settings
     }
+    
+    console.log('Starting game with settings:', gameSettings)
     onStartGame(gameSettings)
   }
 
   const handleSettingChange = (key, value) => {
+    if (!isHost) {
+      alert('Only the host can change game settings!')
+      return
+    }
     setSettings(prev => ({ ...prev, [key]: value }))
+  }
+
+  const handleGameModeChange = (newMode) => {
+    if (!isHost) {
+      alert('Only the host can change the game mode!')
+      return
+    }
+    setGameMode(newMode)
+    const selectedMode = gameModeOptions.find(mode => mode.value === newMode)
+    setMaxPlayers(selectedMode?.maxPlayers || 10)
   }
 
   const gameModeOptions = [
@@ -100,7 +174,7 @@ const GameLobby = ({ gameState, onStartGame, updateGameState }) => {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
-      {/* Back Button */}
+      {/* FIXED: Leave Game Button with proper navigation */}
       <motion.div 
         className="absolute top-4 left-4 z-10"
         initial={{ opacity: 0, x: -20 }}
@@ -111,7 +185,7 @@ const GameLobby = ({ gameState, onStartGame, updateGameState }) => {
           variant="outline"
           size="sm"
           onClick={handleBackToHome}
-          className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm"
+          className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm transition-all duration-200"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Leave Game
@@ -205,6 +279,11 @@ const GameLobby = ({ gameState, onStartGame, updateGameState }) => {
                         Host
                       </Badge>
                     )}
+                    {player.sid === currentSocketId && (
+                      <Badge variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+                        You
+                      </Badge>
+                    )}
                   </motion.div>
                 ))}
 
@@ -232,6 +311,7 @@ const GameLobby = ({ gameState, onStartGame, updateGameState }) => {
                 <CardTitle className="text-white flex items-center gap-2">
                   <Settings className="w-5 h-5" />
                   Game Settings
+                  {!isHost && <span className="text-sm text-white/50">(Host Only)</span>}
                 </CardTitle>
                 <CardDescription className="text-white/70">
                   Configure the game mode
@@ -241,7 +321,7 @@ const GameLobby = ({ gameState, onStartGame, updateGameState }) => {
                 {/* Game Mode Selection */}
                 <div className="space-y-2">
                   <Label className="text-white">Game Mode</Label>
-                  <Select value={gameMode} onValueChange={setGameMode} disabled={!isHost}>
+                  <Select value={gameMode} onValueChange={handleGameModeChange} disabled={!isHost}>
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
                       <SelectValue />
                     </SelectTrigger>
@@ -323,25 +403,49 @@ const GameLobby = ({ gameState, onStartGame, updateGameState }) => {
           </motion.div>
         </div>
 
-        {/* Start Game Button */}
+        {/* FIXED: Start Game Button with proper host detection */}
         <motion.div 
-          className="flex justify-center"
+          className="flex flex-col items-center gap-4"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.6 }}
         >
           <Button
             onClick={handleStartGame}
-            disabled={!isHost || currentPlayers < 2 || currentPlayers > (selectedGameMode?.maxPlayers || 10)}
+            disabled={!canStartGame}
             size="lg"
-            className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold py-4 px-8 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+            className={`font-bold py-4 px-8 text-lg shadow-lg hover:shadow-xl transition-all duration-300 ${
+              canStartGame 
+                ? 'bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white'
+                : 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
+            }`}
           >
             <Play className="w-5 h-5 mr-2" />
             Start Game
           </Button>
+          
+          {/* Status Messages */}
           {!isHost && (
-            <p className="text-white/60 mt-2 text-center">
-              Waiting for host to start the game...
+            <p className="text-white/60 text-center">
+              Waiting for host ({realPlayers.find(p => p.is_host)?.name || 'Unknown'}) to start the game...
+            </p>
+          )}
+          
+          {isHost && currentPlayers < 2 && (
+            <p className="text-white/60 text-center">
+              Need at least 2 players to start the game
+            </p>
+          )}
+          
+          {isHost && currentPlayers > (selectedGameMode?.maxPlayers || 10) && (
+            <p className="text-red-400 text-center">
+              Too many players for {gameMode} mode! Max: {selectedGameMode?.maxPlayers}
+            </p>
+          )}
+          
+          {canStartGame && (
+            <p className="text-green-400 text-center">
+              🎮 Ready to start! Click the button above.
             </p>
           )}
         </motion.div>
