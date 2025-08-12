@@ -4,183 +4,362 @@ class SocketService {
   constructor() {
     this.socket = null
     this.isConnected = false
+    this.reconnectAttempts = 0
+    this.maxReconnectAttempts = 10
+    this.reconnectDelay = 1000
     this.listeners = new Map()
+    this.connectionCallbacks = []
+    this.disconnectionCallbacks = []
   }
 
-  connect(serverUrl = window.location.origin) {
-    if (this.socket) {
-      this.disconnect()
+  connect() {
+    try {
+      // Determine the server URL
+      const serverUrl = this.getServerUrl()
+      console.log('🔗 Connecting to server:', serverUrl)
+
+      // Disconnect existing connection if any
+      if (this.socket) {
+        this.socket.disconnect()
+      }
+
+      // Create new socket connection with robust configuration
+      this.socket = io(serverUrl, {
+        transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
+        timeout: 10000, // 10 second timeout
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: this.reconnectDelay,
+        reconnectionDelayMax: 5000,
+        maxHttpBufferSize: 1e6, // 1MB buffer
+        pingTimeout: 60000, // 60 seconds
+        pingInterval: 25000, // 25 seconds
+        forceNew: true, // Force new connection
+        upgrade: true,
+        rememberUpgrade: true
+      })
+
+      this.setupEventListeners()
+      
+    } catch (error) {
+      console.error('❌ Socket connection error:', error)
+      this.handleConnectionError(error)
     }
-
-    this.socket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
-      timeout: 20000,
-      forceNew: true
-    })
-
-    this.socket.on('connect', () => {
-      console.log('Connected to server:', this.socket.id)
-      this.isConnected = true
-      this.emit('connection_status', { connected: true, id: this.socket.id })
-    })
-
-    this.socket.on('disconnect', () => {
-      console.log('Disconnected from server')
-      this.isConnected = false
-      this.emit('connection_status', { connected: false })
-    })
-
-    this.socket.on('connect_error', (error) => {
-      console.error('Connection error:', error)
-      this.emit('connection_error', error)
-    })
-
-    // Game event listeners
-    this.setupGameListeners()
-
-    return this.socket
   }
 
-  setupGameListeners() {
+  getServerUrl() {
+    // Determine server URL based on environment
+    if (typeof window !== 'undefined') {
+      const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:'
+      const host = window.location.host
+      
+      // For development
+      if (host.includes('localhost') || host.includes('127.0.0.1')) {
+        return `${protocol}//${host}`
+      }
+      
+      // For production (same origin)
+      return `${protocol}//${host}`
+    }
+    
+    // Fallback
+    return process.env.NODE_ENV === 'production' 
+      ? window.location.origin 
+      : 'http://localhost:5000'
+  }
+
+  setupEventListeners() {
     if (!this.socket) return
 
-    // Room events
-    this.socket.on('room_created', (data) => {
-      console.log('Room created:', data)
-      this.emit('room_created', data)
+    // Connection successful
+    this.socket.on('connect', () => {
+      console.log('✅ Connected to server successfully!')
+      this.isConnected = true
+      this.reconnectAttempts = 0
+      
+      // Notify all connection callbacks
+      this.connectionCallbacks.forEach(callback => {
+        try {
+          callback({ connected: true, socketId: this.socket.id })
+        } catch (error) {
+          console.error('Connection callback error:', error)
+        }
+      })
     })
 
-    this.socket.on('room_updated', (data) => {
-      console.log('Room updated:', data)
-      this.emit('room_updated', data)
-    })
-
-    this.socket.on('join_success', (data) => {
-      console.log('Join success:', data)
-      this.emit('join_success', data)
-    })
-
-    this.socket.on('join_error', (data) => {
-      console.error('Join error:', data)
-      this.emit('join_error', data)
-    })
-
-    // Game events
-    this.socket.on('game_started', (data) => {
-      console.log('Game started:', data)
-      this.emit('game_started', data)
-    })
-
-    this.socket.on('game_state_updated', (data) => {
-      console.log('Game state updated:', data)
-      this.emit('game_state_updated', data)
-    })
-
-    this.socket.on('round_started', (data) => {
-      console.log('Round started:', data)
-      this.emit('round_started', data)
-    })
-
-    this.socket.on('answer_submitted', (data) => {
-      console.log('Answer submitted:', data)
-      this.emit('answer_submitted', data)
-    })
-
-    this.socket.on('answer_revealed', (data) => {
-      console.log('Answer revealed:', data)
-      this.emit('answer_revealed', data)
-    })
-
-    this.socket.on('power_up_used', (data) => {
-      console.log('Power-up used:', data)
-      this.emit('power_up_used', data)
-    })
-
-    // Error events
-    this.socket.on('start_error', (data) => {
-      console.error('Start error:', data)
-      this.emit('start_error', data)
-    })
-
-    this.socket.on('submit_error', (data) => {
-      console.error('Submit error:', data)
-      this.emit('submit_error', data)
-    })
-  }
-
-  disconnect() {
-    if (this.socket) {
-      this.socket.disconnect()
-      this.socket = null
+    // Connection failed
+    this.socket.on('connect_error', (error) => {
+      console.error('❌ Connection failed:', error)
       this.isConnected = false
-    }
-  }
+      this.handleConnectionError(error)
+    })
 
-  // Event emitter methods
-  on(event, callback) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, [])
-    }
-    this.listeners.get(event).push(callback)
-  }
+    // Disconnected
+    this.socket.on('disconnect', (reason) => {
+      console.warn('🔌 Disconnected from server:', reason)
+      this.isConnected = false
+      
+      // Notify all disconnection callbacks
+      this.disconnectionCallbacks.forEach(callback => {
+        try {
+          callback({ connected: false, reason })
+        } catch (error) {
+          console.error('Disconnection callback error:', error)
+        }
+      })
 
-  off(event, callback) {
-    if (this.listeners.has(event)) {
-      const callbacks = this.listeners.get(event)
-      const index = callbacks.indexOf(callback)
-      if (index > -1) {
-        callbacks.splice(index, 1)
+      // Auto-reconnect for certain disconnect reasons
+      if (reason === 'io server disconnect') {
+        // Server initiated disconnect - try to reconnect
+        console.log('🔄 Server disconnected, attempting to reconnect...')
+        setTimeout(() => this.connect(), 2000)
       }
+    })
+
+    // Reconnection attempt
+    this.socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`🔄 Reconnection attempt ${attemptNumber}/${this.maxReconnectAttempts}`)
+      this.reconnectAttempts = attemptNumber
+    })
+
+    // Reconnection successful
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log(`✅ Reconnected successfully after ${attemptNumber} attempts`)
+      this.isConnected = true
+      this.reconnectAttempts = 0
+    })
+
+    // Reconnection failed
+    this.socket.on('reconnect_failed', () => {
+      console.error('❌ Failed to reconnect after maximum attempts')
+      this.isConnected = false
+      
+      // Try manual reconnection after a delay
+      setTimeout(() => {
+        console.log('🔄 Attempting manual reconnection...')
+        this.connect()
+      }, 10000) // Wait 10 seconds before manual retry
+    })
+
+    // Ping/Pong for connection health
+    this.socket.on('ping', () => {
+      console.log('🏓 Ping received from server')
+    })
+
+    this.socket.on('pong', (latency) => {
+      console.log(`🏓 Pong - Latency: ${latency}ms`)
+    })
+
+    // Re-register all existing listeners
+    this.listeners.forEach((callback, event) => {
+      this.socket.on(event, callback)
+    })
+  }
+
+  handleConnectionError(error) {
+    console.error('🚨 Socket connection error:', error)
+    
+    // Notify disconnection callbacks
+    this.disconnectionCallbacks.forEach(callback => {
+      try {
+        callback({ connected: false, error: error.message })
+      } catch (err) {
+        console.error('Error callback error:', err)
+      }
+    })
+  }
+
+  // Enhanced event listener with automatic re-registration
+  on(event, callback) {
+    try {
+      // Store the listener for re-registration on reconnect
+      this.listeners.set(event, callback)
+      
+      if (this.socket) {
+        this.socket.on(event, callback)
+      }
+    } catch (error) {
+      console.error(`Error registering listener for ${event}:`, error)
     }
   }
 
-  emit(event, data) {
-    if (this.listeners.has(event)) {
-      this.listeners.get(event).forEach(callback => callback(data))
+  // Remove event listener
+  off(event, callback) {
+    try {
+      this.listeners.delete(event)
+      
+      if (this.socket) {
+        this.socket.off(event, callback)
+      }
+    } catch (error) {
+      console.error(`Error removing listener for ${event}:`, error)
     }
   }
 
-  // Game actions
+  // Enhanced emit with error handling and retry
+  emit(event, data, callback) {
+    try {
+      if (!this.socket || !this.isConnected) {
+        console.warn(`⚠️ Cannot emit ${event} - not connected. Attempting to reconnect...`)
+        this.connect()
+        
+        // Retry after connection attempt
+        setTimeout(() => {
+          if (this.socket && this.isConnected) {
+            this.socket.emit(event, data, callback)
+          } else {
+            console.error(`❌ Failed to emit ${event} - still not connected`)
+            if (callback) callback({ error: 'Not connected to server' })
+          }
+        }, 2000)
+        return
+      }
+
+      console.log(`📤 Emitting ${event}:`, data)
+      this.socket.emit(event, data, callback)
+      
+    } catch (error) {
+      console.error(`Error emitting ${event}:`, error)
+      if (callback) callback({ error: error.message })
+    }
+  }
+
+  // Connection status callbacks
+  onConnect(callback) {
+    this.connectionCallbacks.push(callback)
+    
+    // If already connected, call immediately
+    if (this.isConnected) {
+      callback({ connected: true, socketId: this.socket?.id })
+    }
+  }
+
+  onDisconnect(callback) {
+    this.disconnectionCallbacks.push(callback)
+  }
+
+  // Game-specific methods with enhanced error handling
   createRoom(playerName) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('create_room', { player_name: playerName })
-    }
+    this.emit('create_room', { player_name: playerName }, (response) => {
+      if (response?.error) {
+        console.error('Create room error:', response.error)
+      }
+    })
   }
 
   joinRoom(roomCode, playerName) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('join_room', { room_code: roomCode, player_name: playerName })
-    }
+    this.emit('join_room', { 
+      room_code: roomCode, 
+      player_name: playerName 
+    }, (response) => {
+      if (response?.error) {
+        console.error('Join room error:', response.error)
+      }
+    })
   }
 
-  startGame(roomCode, settings = {}) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('start_game', { room_code: roomCode, settings })
-    }
+  startGame(roomCode, settings) {
+    this.emit('start_game', { 
+      room_code: roomCode, 
+      settings 
+    }, (response) => {
+      if (response?.error) {
+        console.error('Start game error:', response.error)
+      }
+    })
   }
 
-  submitAnswer(roomCode, answer) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('submit_answer', { room_code: roomCode, answer })
-    }
+  submitAnswer(roomCode, answerData) {
+    this.emit('submit_answer', { 
+      room_code: roomCode, 
+      answer_data: answerData 
+    }, (response) => {
+      if (response?.error) {
+        console.error('Submit answer error:', response.error)
+      }
+    })
   }
 
-  usePowerUp(roomCode, powerUpId) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('use_power_up', { room_code: roomCode, power_up_id: powerUpId })
-    }
+  useChaosCard(roomCode, cardType) {
+    this.emit('use_chaos_card', { 
+      room_code: roomCode, 
+      card_type: cardType 
+    })
   }
 
-  revealAnswer(roomCode, answerIndex) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('reveal_answer', { room_code: roomCode, answer_index: answerIndex })
-    }
+  revealAnswer(roomCode) {
+    this.emit('reveal_answer', { room_code: roomCode })
   }
 
   nextRound(roomCode) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('next_round', { room_code: roomCode })
+    this.emit('next_round', { room_code: roomCode })
+  }
+
+  leaveRoom(roomCode) {
+    this.emit('leave_room', { room_code: roomCode })
+  }
+
+  // Force reconnection
+  forceReconnect() {
+    console.log('🔄 Forcing reconnection...')
+    if (this.socket) {
+      this.socket.disconnect()
     }
+    setTimeout(() => this.connect(), 1000)
+  }
+
+  // Disconnect cleanly
+  disconnect() {
+    try {
+      console.log('🔌 Disconnecting from server...')
+      this.isConnected = false
+      
+      if (this.socket) {
+        this.socket.disconnect()
+        this.socket = null
+      }
+      
+      // Clear listeners
+      this.listeners.clear()
+      this.connectionCallbacks = []
+      this.disconnectionCallbacks = []
+      
+    } catch (error) {
+      console.error('Error during disconnect:', error)
+    }
+  }
+
+  // Get connection status
+  getConnectionStatus() {
+    return {
+      connected: this.isConnected,
+      socketId: this.socket?.id,
+      reconnectAttempts: this.reconnectAttempts,
+      transport: this.socket?.io?.engine?.transport?.name
+    }
+  }
+
+  // Health check
+  healthCheck() {
+    return new Promise((resolve) => {
+      if (!this.socket || !this.isConnected) {
+        resolve({ healthy: false, reason: 'Not connected' })
+        return
+      }
+
+      const timeout = setTimeout(() => {
+        resolve({ healthy: false, reason: 'Timeout' })
+      }, 5000)
+
+      this.socket.emit('ping', Date.now(), (response) => {
+        clearTimeout(timeout)
+        resolve({ 
+          healthy: true, 
+          latency: Date.now() - response,
+          socketId: this.socket.id
+        })
+      })
+    })
   }
 }
 
