@@ -137,12 +137,7 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
         </div>
 
-        <motion.div 
-          className="max-w-4xl w-full text-center space-y-8"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
+        <div className="max-w-4xl w-full text-center space-y-8">
           <h1 className="text-6xl font-bold bg-gradient-to-r from-pink-400 to-purple-600 bg-clip-text text-transparent">
             🏆 Game Over! 🏆
           </h1>
@@ -179,7 +174,7 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
             <Home className="w-5 h-5 mr-2" />
             Back to Home
           </Button>
-        </motion.div>
+        </div>
       </div>
     )
   }
@@ -193,12 +188,7 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
       </div>
 
       {/* Back Button */}
-      <motion.div 
-        className="absolute top-4 left-4 z-10"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+      <div className="absolute top-4 left-4 z-10">
         <Button
           variant="outline"
           size="sm"
@@ -208,15 +198,10 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
           <ArrowLeft className="w-4 h-4 mr-2" />
           Leave Game
         </Button>
-      </motion.div>
+      </div>
 
       {/* Game Info */}
-      <motion.div 
-        className="absolute top-4 right-4 z-10 flex gap-2"
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+      <div className="absolute top-4 right-4 z-10 flex gap-2">
         <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
           Round {currentRound}/{totalRounds}
         </Badge>
@@ -224,30 +209,20 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
           <Clock className="w-4 h-4 mr-1" />
           {timeLeft}s
         </Badge>
-      </motion.div>
+      </div>
 
       <div className="max-w-6xl w-full space-y-8">
         {/* Progress Bar */}
-        <motion.div 
-          className="space-y-2"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
+        <div className="space-y-2">
           <div className="flex justify-between text-white/70 text-sm">
             <span>Game Progress</span>
             <span>{Math.round(progress)}%</span>
           </div>
           <Progress value={progress} className="h-2 bg-white/10" />
-        </motion.div>
+        </div>
 
         {/* Question Card */}
-        <motion.div 
-          className="space-y-6"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
+        <div className="space-y-6">
           <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
             <CardHeader className="text-center">
               <Badge variant="secondary" className="w-fit mx-auto mb-4 bg-purple-500/20 text-purple-300 border-purple-500/30">
@@ -266,14 +241,7 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
           <div className="grid md:grid-cols-2 gap-4">
             <AnimatePresence>
               {displayQuestion.options?.map((option, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  whileHover={{ scale: hasSubmitted || showResults ? 1 : 1.02 }}
-                  whileTap={{ scale: hasSubmitted || showResults ? 1 : 0.98 }}
-                >
+                <div key={index}>
                   <Button
                     variant="outline"
                     onClick={() => handleAnswerSelect(index)}
@@ -304,19 +272,14 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
                       </div>
                     </div>
                   </Button>
-                </motion.div>
+                </div>
               ))}
             </AnimatePresence>
           </div>
 
           {/* Submit Button */}
           {!hasSubmitted && !showResults && (
-            <motion.div 
-              className="flex justify-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.8 }}
-            >
+            <div className="flex justify-center">
               <Button
                 onClick={() => handleSubmitAnswer()}
                 disabled={selectedAnswer === null}
@@ -330,31 +293,21 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
                 <Target className="w-5 h-5 mr-2" />
                 Submit Answer
               </Button>
-            </motion.div>
+            </div>
           )}
 
           {/* Waiting Message */}
           {hasSubmitted && !showResults && (
-            <motion.div 
-              className="text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6 }}
-            >
+            <div className="text-center">
               <div className="text-white/70 text-lg">
                 ⏳ Waiting for other players to answer...
               </div>
-            </motion.div>
+            </div>
           )}
 
           {/* Results and Next Round */}
           {showResults && isHost && (
-            <motion.div 
-              className="flex justify-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
+            <div className="flex justify-center">
               <Button
                 onClick={handleNextRound}
                 size="lg"
@@ -363,30 +316,20 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
                 <Star className="w-5 h-5 mr-2" />
                 Next Round
               </Button>
-            </motion.div>
+            </div>
           )}
 
           {showResults && !isHost && (
-            <motion.div 
-              className="text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6 }}
-            >
+            <div className="text-center">
               <div className="text-white/70 text-lg">
                 🎮 Waiting for host to start next round...
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
 
         {/* Player Status */}
-        <motion.div 
-          className="grid md:grid-cols-2 gap-4"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1 }}
-        >
+        <div className="grid md:grid-cols-2 gap-4">
           <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
@@ -450,7 +393,7 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
     </div>
   )
