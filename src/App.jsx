@@ -3,30 +3,32 @@ import LandingPage from './components/LandingPage';
 import GameLobby from './components/GameLobby';
 import GamePlay from './components/GamePlay';
 
-// Socket service for real-time communication
+// Socket service for real-time communication - BROWSER COMPATIBLE VERSION
 const socketService = {
   socket: null,
   
   connect() {
     try {
-      // Use Socket.IO with fallback transports
-      const io = window.io || require('socket.io-client');
-      
-      this.socket = io(window.location.origin, {
-        transports: ['websocket', 'polling'],
-        upgrade: true,
-        rememberUpgrade: true,
-        timeout: 20000,
-        reconnection: true,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        maxReconnectionAttempts: 10,
-        pingTimeout: 60000,
-        pingInterval: 25000,
-      });
-
-      return this.socket;
+      // Use only window.io (removed require() that was causing the error)
+      if (typeof window.io !== 'undefined') {
+        this.socket = window.io(window.location.origin, {
+          transports: ['websocket', 'polling'],
+          upgrade: true,
+          rememberUpgrade: true,
+          timeout: 20000,
+          reconnection: true,
+          reconnectionAttempts: 10,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          maxReconnectionAttempts: 10,
+          pingTimeout: 60000,
+          pingInterval: 25000,
+        });
+        return this.socket;
+      } else {
+        console.error('Socket.IO client library not found. Please include it in your HTML.');
+        return null;
+      }
     } catch (error) {
       console.error('Socket connection error:', error);
       return null;
