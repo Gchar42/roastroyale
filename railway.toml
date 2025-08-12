@@ -1,5 +1,6 @@
 [build]
 builder = "NIXPACKS"
+buildCommand = "pnpm install && pnpm run build && mkdir -p backend/static && cp -r dist/* backend/static/"
 
 [deploy]
 startCommand = "python backend/main.py"
@@ -11,4 +12,3 @@ restartPolicyMaxRetries = 10
 [environments.production.variables]
 FLASK_ENV = "production"
 PORT = "5000"
-
