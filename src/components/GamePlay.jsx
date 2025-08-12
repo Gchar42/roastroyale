@@ -16,18 +16,20 @@ import {
   Star,
   Target
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
 import socketService from '@/services/socket'
 
 const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, onNextRound }) => {
   const navigate = useNavigate()
-  const { roomCode } = useParams()
+  const params = useParams()
+  const roomCode = params?.roomCode || gameState?.roomCode || ''
+  
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [timeLeft, setTimeLeft] = useState(30)
   const [showResults, setShowResults] = useState(false)
 
-  const gameData = gameState.gameData || {}
+  // Safe access to gameState properties
+  const gameData = gameState?.gameData || {}
   const currentQuestion = gameData.current_question || {}
   const currentRound = gameData.current_round || 1
   const totalRounds = gameData.total_rounds || 5
@@ -42,7 +44,6 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
       return () => clearTimeout(timer)
     } else if (timeLeft === 0 && !hasSubmitted) {
-      // Auto-submit when time runs out
       handleSubmitAnswer(null)
     }
   }, [timeLeft, hasSubmitted, showResults])
@@ -93,20 +94,26 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
     const answerData = {
       question_id: currentQuestion.id,
       answer_index: answer,
-      answer_text: answer !== null ? currentQuestion.options[answer] : 'No answer'
+      answer_text: answer !== null ? currentQuestion.options?.[answer] || 'No answer' : 'No answer'
     }
     
     console.log('Submitting answer:', answerData)
-    onSubmitAnswer(answerData)
+    if (onSubmitAnswer) {
+      onSubmitAnswer(answerData)
+    }
   }
 
   const handleNextRound = () => {
     if (!isHost) return
-    onNextRound()
+    if (onNextRound) {
+      onNextRound()
+    }
   }
 
   const handleUseChaosCard = (cardType) => {
-    onUseChaosCard(cardType)
+    if (onUseChaosCard) {
+      onUseChaosCard(cardType)
+    }
   }
 
   // Sample multiple choice questions if none provided
@@ -129,7 +136,8 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
   const displayQuestion = currentQuestion.question ? currentQuestion : sampleQuestion
   const progress = (currentRound / totalRounds) * 100
 
-  if (gameState.gameEnded) {
+  // Game ended screen
+  if (gameState?.gameEnded) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
         <div className="absolute inset-0 overflow-hidden">
@@ -137,7 +145,7 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
         </div>
 
-        <div className="max-w-4xl w-full text-center space-y-8">
+        <div className="max-w-4xl w-full text-center space-y-8 relative z-10">
           <h1 className="text-6xl font-bold bg-gradient-to-r from-pink-400 to-purple-600 bg-clip-text text-transparent">
             🏆 Game Over! 🏆
           </h1>
@@ -211,7 +219,7 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
         </Badge>
       </div>
 
-      <div className="max-w-6xl w-full space-y-8">
+      <div className="max-w-6xl w-full space-y-8 relative z-10">
         {/* Progress Bar */}
         <div className="space-y-2">
           <div className="flex justify-between text-white/70 text-sm">
@@ -239,42 +247,40 @@ const GamePlay = ({ gameState, onSubmitAnswer, onUseChaosCard, onRevealAnswer, o
 
           {/* Multiple Choice Options */}
           <div className="grid md:grid-cols-2 gap-4">
-            <AnimatePresence>
-              {displayQuestion.options?.map((option, index) => (
-                <div key={index}>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleAnswerSelect(index)}
-                    disabled={hasSubmitted || showResults}
-                    className={`w-full p-6 h-auto text-left justify-start transition-all duration-200 ${
-                      selectedAnswer === index
-                        ? 'bg-purple-500/20 border-purple-400 text-white'
-                        : 'bg-white/5 border-white/20 text-white hover:bg-white/10'
-                    } ${
-                      hasSubmitted || showResults ? 'cursor-not-allowed opacity-60' : 'hover:border-purple-400/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="flex-shrink-0">
-                        {selectedAnswer === index ? (
-                          <CheckCircle className="w-5 h-5 text-purple-400" />
-                        ) : (
-                          <Circle className="w-5 h-5 text-white/40" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-base leading-relaxed">
-                          {option}
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0 text-white/40 font-mono text-sm">
-                        {String.fromCharCode(65 + index)}
+            {displayQuestion.options?.map((option, index) => (
+              <div key={index}>
+                <Button
+                  variant="outline"
+                  onClick={() => handleAnswerSelect(index)}
+                  disabled={hasSubmitted || showResults}
+                  className={`w-full p-6 h-auto text-left justify-start transition-all duration-200 ${
+                    selectedAnswer === index
+                      ? 'bg-purple-500/20 border-purple-400 text-white'
+                      : 'bg-white/5 border-white/20 text-white hover:bg-white/10'
+                  } ${
+                    hasSubmitted || showResults ? 'cursor-not-allowed opacity-60' : 'hover:border-purple-400/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="flex-shrink-0">
+                      {selectedAnswer === index ? (
+                        <CheckCircle className="w-5 h-5 text-purple-400" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-white/40" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-base leading-relaxed">
+                        {option}
                       </div>
                     </div>
-                  </Button>
-                </div>
-              ))}
-            </AnimatePresence>
+                    <div className="flex-shrink-0 text-white/40 font-mono text-sm">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                  </div>
+                </Button>
+              </div>
+            ))}
           </div>
 
           {/* Submit Button */}
