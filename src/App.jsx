@@ -1,74 +1,100 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'
+import socketService from './services/socket'
 import LandingPage from './components/LandingPage'
 import GameLobby from './components/GameLobby'
-import TeamFormation from './components/TeamFormation'
 import GamePlay from './components/GamePlay'
-import socketService from './services/socket'
-import './App.css'
+import TeamFormation from './components/TeamFormation'
 
 function App() {
   const [gameState, setGameState] = useState({
-    playerName: '',
-    roomCode: '',
     isConnected: false,
     connectionError: null,
+    playerName: '',
+    roomCode: '',
     roomData: null,
-    gameData: null
+    gameData: null,
+    gameStarted: false,
+    currentRound: 0,
+    totalRounds: 5
   })
 
   useEffect(() => {
-    // Connect to backend when app loads
+    // Initialize socket connection
     socketService.connect()
 
-    // Set up socket event listeners
-    socketService.on('connection_status', (data) => {
+    // Socket event listeners
+    socketService.on('connected', (data) => {
+      console.log('Connected to server:', data)
       setGameState(prev => ({
         ...prev,
-        isConnected: data.connected,
-        connectionError: data.connected ? null : 'Disconnected from server'
+        isConnected: true,
+        connectionError: null
       }))
     })
 
-    socketService.on('connection_error', (error) => {
+    socketService.on('disconnect', () => {
       setGameState(prev => ({
         ...prev,
         isConnected: false,
-        connectionError: 'Failed to connect to server'
+        connectionError: 'Disconnected from server'
       }))
     })
 
     socketService.on('room_created', (data) => {
-      setGameState(prev => ({
-        ...prev,
-        roomCode: data.room_code,
-        roomData: data.room_data
-      }))
+      console.log('Room created:', data)
+      if (data.success) {
+        setGameState(prev => ({
+          ...prev,
+          roomCode: data.room_code,
+          roomData: data.room_data
+        }))
+        // Navigate to lobby after room creation
+        window.location.href = `/lobby/${data.room_code}`
+      }
     })
 
     socketService.on('room_updated', (data) => {
+      console.log('Room updated:', data)
       setGameState(prev => ({
         ...prev,
         roomData: data
       }))
     })
 
+    // FIXED: Proper join success handling with navigation
     socketService.on('join_success', (data) => {
       console.log('Successfully joined room:', data)
+      setGameState(prev => ({
+        ...prev,
+        roomCode: data.room_data.room_code,
+        roomData: data.room_data
+      }))
+      // Navigate to lobby after successful join
+      window.location.href = `/lobby/${data.room_data.room_code}`
     })
 
     socketService.on('join_error', (data) => {
+      console.error('Failed to join room:', data.message)
       alert('Failed to join room: ' + data.message)
     })
 
+    socketService.on('room_error', (data) => {
+      console.error('Room error:', data.message)
+      alert('Room error: ' + data.message)
+    })
+
     socketService.on('game_started', (data) => {
+      console.log('Game started:', data)
       setGameState(prev => ({
         ...prev,
-        gameData: data
+        gameData: data,
+        gameStarted: true
       }))
     })
 
     socketService.on('game_state_updated', (data) => {
+      console.log('Game state updated:', data)
       setGameState(prev => ({
         ...prev,
         gameData: data
@@ -76,9 +102,27 @@ function App() {
     })
 
     socketService.on('round_started', (data) => {
+      console.log('Round started:', data)
       setGameState(prev => ({
         ...prev,
         gameData: data
+      }))
+    })
+
+    socketService.on('round_ended', (data) => {
+      console.log('Round ended:', data)
+      setGameState(prev => ({
+        ...prev,
+        gameData: data
+      }))
+    })
+
+    socketService.on('game_ended', (data) => {
+      console.log('Game ended:', data)
+      setGameState(prev => ({
+        ...prev,
+        gameData: data,
+        gameStarted: false
       }))
     })
 
@@ -93,17 +137,36 @@ function App() {
   }
 
   const createRoom = (playerName) => {
+    console.log('Creating room for player:', playerName)
     updateGameState({ playerName })
     socketService.createRoom(playerName)
   }
 
   const joinRoom = (roomCode, playerName) => {
+    console.log('Joining room:', roomCode, 'as player:', playerName)
     updateGameState({ playerName, roomCode })
     socketService.joinRoom(roomCode, playerName)
   }
 
   const startGame = (settings) => {
+    console.log('Starting game with settings:', settings)
     socketService.startGame(gameState.roomCode, settings)
+  }
+
+  const submitAnswer = (answer) => {
+    socketService.submitAnswer(gameState.roomCode, answer)
+  }
+
+  const useChaosCard = (cardType) => {
+    socketService.useChaosCard(gameState.roomCode, cardType)
+  }
+
+  const revealAnswer = () => {
+    socketService.revealAnswer(gameState.roomCode)
+  }
+
+  const nextRound = () => {
+    socketService.nextRound(gameState.roomCode)
   }
 
   return (
@@ -151,22 +214,23 @@ function App() {
             path="/teams/:roomCode" 
             element={
               <TeamFormation 
-                gameState={gameState} 
+                gameState={gameState}
                 updateGameState={updateGameState}
-                onStartGame={startGame}
               />
             } 
           />
           <Route 
-            path="/play/:roomCode" 
+            path="/game/:roomCode" 
             element={
               <GamePlay 
-                gameState={gameState} 
-                updateGameState={updateGameState}
+                gameState={gameState}
+                onSubmitAnswer={submitAnswer}
+                onUseChaosCard={useChaosCard}
+                onRevealAnswer={revealAnswer}
+                onNextRound={nextRound}
               />
             } 
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </div>
